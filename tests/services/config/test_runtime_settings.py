@@ -85,6 +85,7 @@ def test_render_environment_uses_json_backed_runtime_names(monkeypatch, tmp_path
         {
             "backend_port": 8010,
             "frontend_port": 3790,
+            "next_public_api_base_external": "https://app.example/api",
             "cors_origins": ["https://app.example"],
             "disable_ssl_verify": True,
         }
@@ -108,13 +109,29 @@ def test_render_environment_uses_json_backed_runtime_names(monkeypatch, tmp_path
     # Server-side proxy contract consumed by web/proxy.ts (the Next.js
     # middleware). DEEPTUTOR_AUTH_ENABLED gates the login redirect;
     # DEEPTUTOR_API_BASE_URL is where the frontend server reaches the backend
-    # (falls back to localhost:<backend_port> when no in-network / external base
-    # is configured).
+    # (falls back to localhost:<backend_port> when no in-network base is
+    # configured). The external browser URL must not be used here because it
+    # would loop back through the frontend reverse proxy.
     assert env["DEEPTUTOR_AUTH_ENABLED"] == "true"
     assert env["DEEPTUTOR_API_BASE_URL"] == "http://localhost:8010"
     assert env["AUTH_TOKEN_EXPIRE_HOURS"] == "12"
     assert env["POCKETBASE_URL"] == "http://pocketbase:8090"
     assert "AUTH_SECRET" not in env
+
+
+def test_render_environment_prefers_internal_api_base(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(tmp_path / "settings")
+    service.save_system(
+        {
+            "backend_port": 8010,
+            "next_public_api_base": "http://backend:9000",
+            "next_public_api_base_external": "https://app.example/api",
+        }
+    )
+
+    env = service.render_environment()
+
+    assert env["DEEPTUTOR_API_BASE_URL"] == "http://backend:9000"
 
 
 def test_system_settings_accept_public_api_base_alias_and_normalize_origins(

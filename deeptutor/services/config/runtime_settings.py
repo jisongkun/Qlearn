@@ -525,10 +525,12 @@ class RuntimeSettingsService:
             # the Docker entrypoint both export these through render_environment,
             # so the two deployment paths stay in sync. DEEPTUTOR_API_BASE_URL is
             # the address the frontend *server* uses to reach the backend; the
-            # browser itself only ever talks to the frontend origin.
+            # browser itself only ever talks to the frontend origin. Never fall
+            # back to the external browser URL here: in a reverse-proxy deployment
+            # that would route the request back through the frontend and create a
+            # proxy loop.
             "DEEPTUTOR_API_BASE_URL": (
                 system["next_public_api_base"]
-                or system["next_public_api_base_external"]
                 or f"http://localhost:{system['backend_port']}"
             ),
             "DEEPTUTOR_AUTH_ENABLED": _bool_env(auth["enabled"]),
