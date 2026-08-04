@@ -1,4 +1,152 @@
-# DeepTutor — Agent-Native Architecture
+# Qlearn — DeepTutor-Compatible UI Fork
+
+## Qlearn Product and Compatibility Contract
+
+Qlearn is a UI-focused fork of `HKUDS/DeepTutor`. Its product goal is to make
+large, opinionated improvements to branding, information architecture, visual
+design, responsive behavior, accessibility, and frontend interaction quality
+without changing DeepTutor's actual capabilities or breaking the ability to
+merge future upstream releases.
+
+This contract is mandatory for all agents and contributors unless the user
+explicitly authorizes a functional or compatibility-breaking change.
+
+### Repository relationships
+
+- `origin` is `https://github.com/jisongkun/Qlearn.git`.
+- `upstream` is `https://github.com/HKUDS/DeepTutor.git`.
+- Keep upstream history intact. Do not squash, rebase, or rewrite shared
+  upstream commits merely to make the fork history look cleaner.
+- Put Qlearn-specific work in small, focused commits. Keep visual-system,
+  layout, copy, transport, and backend changes separate so upstream conflicts
+  remain reviewable.
+- Do not rename, relocate, or mechanically reformat upstream-owned files unless
+  the UI change requires it. Broad formatting churn makes future merges harder.
+
+### Architecture boundary
+
+The codebase is a monorepo with logically separate applications:
+
+- `web/`: Next.js 16, React 19, TypeScript frontend. This is the primary Qlearn
+  customization surface.
+- `deeptutor/`: Python/FastAPI backend and agent runtime. Treat this as
+  upstream-owned and unchanged for UI-only work.
+- `deeptutor_cli/` and `deeptutor_web/`: packaging and entry-point layers.
+  Treat these as upstream-owned unless build integration genuinely requires a
+  minimal change.
+- `web/lib/`, `web/hooks/`, and frontend contexts may contain behavior and
+  transport logic even though they live under `web/`. Do not assume every
+  frontend file is presentation-only.
+
+The repository may package both applications in one Docker image; that does
+not erase the frontend/backend contract.
+
+### Safe UI customization surface
+
+Prefer changes in these areas:
+
+- `web/app/` for layouts, route presentation, loading states, and page shells.
+- `web/components/` for visual components and composition.
+- `web/features/` for presentation-oriented feature composition.
+- `web/public/` for Qlearn-owned static assets.
+- `web/locales/` for user-facing copy, while preserving every existing locale
+  key and keeping locale parity checks passing.
+- Tailwind configuration, design tokens, CSS, icons, and motion definitions.
+
+New Qlearn-specific design primitives should be additive and centralized. Build
+a reusable design-system layer rather than scattering one-off styles across
+upstream components.
+
+### Functional contracts that must remain compatible
+
+UI-only work must preserve all externally observable behavior, including:
+
+- HTTP API paths, methods, query parameters, request bodies, status handling,
+  and response-field interpretation.
+- WebSocket paths, connection lifecycle, message schemas, event ordering,
+  cancellation, reconnection, and streaming behavior.
+- File-upload field names, accepted file behavior, previews, and download URLs.
+- Authentication cookies, login/register flows, redirects, and authorization
+  handling.
+- Settings persistence, knowledge-base operations, chat/session behavior,
+  notebooks, books, learning progress, memory, partners, subagents, tools, and
+  capabilities.
+- Existing route URLs, deep links, browser navigation, and bookmarked pages,
+  unless an explicit compatibility redirect is added and tested.
+- Accessibility semantics and keyboard behavior; a redesign must not make them
+  worse.
+- `web/lib/api.ts`, `web/proxy.ts`, and `web/lib/unified-ws.ts` are transport
+  boundaries. Preserve their semantics for UI-only changes.
+
+Do not modify `deeptutor/api/`, capability implementations, runtime settings,
+event schemas, or persistence formats to make a UI implementation easier.
+Adapt the presentation layer to the existing contract instead.
+
+### Upstream-friendly implementation rules
+
+- Prefer wrappers, composition, new Qlearn components, and design tokens over
+  invasive rewrites of transport-aware upstream components.
+- When an upstream component mixes data behavior and presentation, first
+  preserve or extract the behavior behind the same public props, then replace
+  only the presentation. Do not silently change its behavioral contract.
+- Keep component public props and exported symbols stable when practical.
+- Avoid copying backend-derived enums, capability names, or event schemas into
+  a second manually maintained source of truth.
+- Do not hard-code backend URLs. Browser API and WebSocket calls must continue
+  through the existing relative-path/proxy architecture.
+- Do not commit secrets, local runtime data, generated knowledge bases, model
+  credentials, build output, or dependency directories.
+- When resolving an upstream merge conflict, first preserve upstream behavior,
+  then reapply the Qlearn visual layer. Never choose the Qlearn side solely
+  because it looks newer.
+
+### Required workflow for UI changes
+
+Before implementation:
+
+1. Identify the routes and components being redesigned.
+2. Trace their API, WebSocket, auth, persistence, and context dependencies.
+3. Record which behavior is invariant and which presentation is changing.
+
+During implementation:
+
+1. Keep data fetching, mutations, and event handling behavior intact.
+2. Keep Qlearn-specific presentation changes isolated and reusable.
+3. Preserve loading, empty, error, reconnecting, disabled, permission, and
+   partial-stream states—not only the happy path.
+
+Before considering the work complete, run the relevant available checks:
+
+```bash
+cd web
+npm run lint
+npm run test:node
+npm run i18n:check
+npm run build
+```
+
+For affected critical flows, also run or extend the relevant Playwright tests.
+If a command cannot run because dependencies or services are unavailable,
+report that explicitly; do not claim compatibility was verified.
+
+### Upstream synchronization procedure
+
+Use a merge-based synchronization flow so the fork relationship remains
+auditable:
+
+```bash
+git fetch upstream
+git switch main
+git merge upstream/main
+# resolve conflicts by preserving upstream behavior and reapplying Qlearn UI
+git push origin main
+```
+
+After every upstream merge, at minimum verify the frontend build, locale parity,
+API proxy behavior, authentication gate, primary chat WebSocket flow, knowledge
+base flow, and any routes touched by conflict resolution.
+
+## DeepTutor Upstream Architecture
 
 ## Overview
 
