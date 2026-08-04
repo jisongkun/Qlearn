@@ -79,6 +79,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     build-essential \
+    cmake \
+    ffmpeg \
+    libcairo2-dev \
+    libpango1.0-dev \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -96,7 +100,8 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY requirements/ ./requirements/
 COPY requirements.txt ./
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install -r requirements.txt && \
+    pip install -r requirements/math-animator.txt
 
 # ============================================
 # Stage 3: Production Image
@@ -138,6 +143,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     git \
     supervisor \
+    ffmpeg \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    dvisvgm \
+    fonts-noto-cjk \
+    texlive-fonts-recommended \
+    texlive-latex-base \
+    texlive-latex-extra \
+    texlive-science \
+    texlive-xetex \
+    tipa \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
