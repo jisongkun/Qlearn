@@ -5,8 +5,8 @@
 @layer base {
   /* ────────────────────────────────────────────────────────────────────────
      Theme palettes — four families:
-       • Default (.theme-snow) → pure-white neutral greys, blue accent
-       • Cream (:root) and Dark (.dark) → warm family, terracotta accent
+       • Default (.theme-snow) → pure-white neutral greys, indigo accent
+       • Cream (:root) and Dark (.dark) → warm paper family, indigo accent
        • Glass (.theme-glass) → translucent purple on near-black
      Tokens that every theme must publish:
        --background, --foreground, --card / --popover (+ their -foreground),
@@ -17,35 +17,45 @@
                      (replaces hardcoded bg-black/40 in components)
    ──────────────────────────────────────────────────────────────────────── */
 
-  /* Cream — near-white warm canvas. Reads as off-white at first glance;
-     the warm tint only surfaces on filled blocks (selected nav, panels)
-     and against the terracotta primary. Inspired by Claude's chrome:
-     keep bg essentially white, save the visible warmth for accents. */
+  /* Cream — the default QLearn paper workspace. It keeps Notion's calm,
+     document-like density while the indigo accent carries active learning
+     state consistently across chat, progress, and navigation. */
   :root {
     color-scheme: light;
-    --background: #fdfcf9;
+    --background: #faf8f2;
     --foreground: #1c1816;
     --card: #ffffff;
     --card-foreground: #1c1816;
     --popover: #ffffff;
     --popover-foreground: #1c1816;
-    --primary: #b0501e;
+    --primary: #4848d8;
     --primary-foreground: #ffffff;
-    --secondary: #f5f2ea;
+    --secondary: #f3f0e8;
     --secondary-foreground: #1c1816;
-    --muted: #f1ede2;
-    --muted-foreground: #6d645a;
-    --accent: #ece7d8;
+    --muted: #eee8de;
+    --muted-foreground: #706b63;
+    --accent: #ececff;
     --accent-foreground: #1c1816;
-    --destructive: #c53a2c;
+    --destructive: #d85d43;
     --destructive-foreground: #ffffff;
-    --border: #e6decc;
-    --input: #e6decc;
-    --ring: #b0501e;
+    --border: #ded8ce;
+    --input: #ded8ce;
+    --ring: #4848d8;
     --overlay: rgba(28, 24, 22, 0.42);
+
+    --q-radius-control: 10px;
+    --q-radius-card: 16px;
+    --q-radius-panel: 20px;
+    --q-motion-fast: 160ms;
+    --q-motion-base: 240ms;
+    --q-motion-slow: 420ms;
+    --q-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --q-shadow-quiet: 0 1px 2px rgba(28, 24, 22, 0.025);
+    --q-shadow-card: 0 12px 32px -20px rgba(28, 24, 22, 0.34);
+    --q-shadow-floating: 0 24px 56px -28px rgba(28, 24, 22, 0.48);
   }
 
-  /* Dark — warm near-black, same terracotta family as Cream. */
+  /* Dark — warm near-black with the same QLearn indigo family. */
   .dark {
     color-scheme: dark;
     --background: #1a1918;
@@ -54,7 +64,7 @@
     --card-foreground: #e8e4de;
     --popover: #242220;
     --popover-foreground: #e8e4de;
-    --primary: #d4734b;
+    --primary: #aeb6fa;
     --primary-foreground: #1a1918;
     --secondary: #2a2725;
     --secondary-foreground: #e8e4de;
@@ -66,7 +76,7 @@
     --destructive-foreground: #ffffff;
     --border: #3a3634;
     --input: #3a3634;
-    --ring: #d4734b;
+    --ring: #aeb6fa;
     --overlay: rgba(0, 0, 0, 0.6);
   }
 
@@ -82,7 +92,7 @@
     --card-foreground: #0d0d0d;
     --popover: #ffffff;
     --popover-foreground: #0d0d0d;
-    --primary: #2563eb;
+    --primary: #4f46e5;
     --primary-foreground: #ffffff;
     --secondary: #f7f7f7;
     --secondary-foreground: #0d0d0d;
@@ -94,7 +104,7 @@
     --destructive-foreground: #ffffff;
     --border: #e5e5e5;
     --input: #e5e5e5;
-    --ring: #2563eb;
+    --ring: #4f46e5;
     --overlay: rgba(0, 0, 0, 0.4);
   }
 
@@ -177,6 +187,9 @@
     @apply antialiased;
     background: var(--background);
     color: var(--foreground);
+    font-family:
+      var(--font-sans), "Noto Sans SC", "PingFang SC", "Microsoft YaHei",
+      system-ui, sans-serif;
   }
 
   button,
@@ -193,11 +206,43 @@
 
 @layer components {
   .surface-card {
-    @apply rounded-2xl border bg-[var(--card)] shadow-sm;
+    @apply rounded-2xl border bg-[var(--card)];
+    box-shadow: var(--q-shadow-quiet);
   }
 
   .muted-chip {
     @apply rounded-full bg-[var(--muted)] px-3 py-1 text-xs text-[var(--muted-foreground)];
+  }
+}
+
+.qlearn-workspace {
+  position: relative;
+  isolation: isolate;
+  background: var(--background);
+}
+
+.qlearn-workspace::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 42%, transparent) 0,
+    transparent 220px
+  );
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

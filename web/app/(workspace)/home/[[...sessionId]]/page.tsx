@@ -38,6 +38,7 @@ import type { ContextBudget } from "@/components/chat/home/ContextBudgetChip";
 import { ChatMessageList } from "@/components/chat/home/ChatMessages";
 import { TurnNavigator } from "@/components/chat/home/TurnNavigator";
 import SessionLoadingView from "@/components/chat/home/SessionLoadingView";
+import WelcomeCanvas from "@/components/qlearn/WelcomeCanvas";
 // Imported eagerly so the drawer shell is always mounted off-screen —
 // clicking a chip becomes a single CSS class flip, no chunk fetch + double
 // render. The heavy renderers inside still load lazily.
@@ -1229,6 +1230,14 @@ export default function ChatPage() {
     [capabilityConfigs, setCapability, setKBs, setTools, userEnabledTools],
   );
 
+  const handleSelectWelcomeStarter = useCallback(
+    (prompt: string, capability: string) => {
+      handleSelectCapability(capability);
+      handlePrefillComposer(prompt);
+    },
+    [handlePrefillComposer, handleSelectCapability],
+  );
+
   const fileToAttachment = useCallback(
     (f: File): Promise<PendingAttachment> =>
       new Promise((resolve, reject) => {
@@ -1969,7 +1978,9 @@ export default function ChatPage() {
               />
             </div>
           </div>
-          <div className="flex w-full flex-1 min-h-0 flex-col">
+          <div
+            className={`flex w-full flex-1 min-h-0 flex-col ${!hasMessages ? "overflow-y-auto" : ""}`}
+          >
             {sessionLoading ? (
               <div className="flex w-full flex-1 min-h-0 justify-center px-6">
                 <div className="h-full w-full max-w-[960px]">
@@ -1977,21 +1988,10 @@ export default function ChatPage() {
                 </div>
               </div>
             ) : !hasMessages ? (
-              <div className="flex w-full flex-1 min-h-0 items-end justify-center pb-14 animate-fade-in px-6">
-                <div className="w-full max-w-[960px] flex items-center justify-center gap-4">
-                  <img
-                    src="/logo_black.png"
-                    alt="DeepTutor"
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 select-none"
-                    draggable={false}
-                  />
-                  <h1 className="font-serif text-[40px] font-medium leading-[1.1] tracking-[-0.015em] text-[var(--foreground)]">
-                    {t(welcomeGreeting)}
-                  </h1>
-                </div>
-              </div>
+              <WelcomeCanvas
+                greeting={t(welcomeGreeting)}
+                onSelectStarter={handleSelectWelcomeStarter}
+              />
             ) : (
               // Positioned wrapper spanning exactly the scrollport, so the
               // turn navigator can overlay the left gutter without living
@@ -2144,7 +2144,11 @@ export default function ChatPage() {
               aria-hidden="true"
               className="shrink-0"
               style={{
-                flexGrow: hasMessages ? 0 : 1.4,
+                // Keep the empty-state composer anchored below the hero.
+                // The previous grow spacer vertically centred the composer,
+                // which clipped the redesigned welcome canvas at laptop
+                // heights and made the composer appear to overlap it.
+                flexGrow: 0,
                 transition: "flex-grow 650ms cubic-bezier(0.16, 1, 0.3, 1)",
               }}
             />

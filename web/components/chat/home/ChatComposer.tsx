@@ -654,7 +654,8 @@ export default memo(function ChatComposer({
   return (
     <div
       ref={composerRef}
-      className={`relative z-20 mx-auto w-full shrink-0 px-6 pb-5 ${hasMessages ? "pt-1 max-w-[960px]" : "max-w-[768px]"}`}
+      data-qlearn-composer="true"
+      className={`relative z-20 mx-auto w-full shrink-0 px-4 pb-5 sm:px-6 ${hasMessages ? "max-w-[960px] pt-1" : "max-w-[816px]"}`}
       style={{
         transition: "max-width 650ms cubic-bezier(0.16, 1, 0.3, 1)",
       }}
@@ -665,10 +666,10 @@ export default memo(function ChatComposer({
 
       <div className="relative">
         <div
-          className={`relative rounded-[26px] border bg-[var(--card)] shadow-[0_1px_2px_rgba(0,0,0,0.025),0_10px_28px_-10px_rgba(0,0,0,0.08)] transition-colors ${
+          className={`relative rounded-[22px] border bg-[var(--card)] shadow-[var(--q-shadow-card)] transition-[border-color,background-color,box-shadow,transform] duration-[var(--q-motion-base)] ease-[var(--q-ease-out)] focus-within:border-[color-mix(in_srgb,var(--primary)_55%,var(--border))] focus-within:shadow-[var(--q-shadow-floating)] ${
             dragging
-              ? "border-[var(--primary)] bg-[var(--primary)]/[0.03]"
-              : "border-[var(--border)]/55"
+              ? "scale-[1.005] border-[var(--primary)] bg-[color-mix(in_srgb,var(--card)_96%,var(--primary))] motion-reduce:scale-100"
+              : "border-[var(--border)]"
           }`}
           onDragEnter={onDragEnter}
           onDragLeave={onDragLeave}
@@ -677,7 +678,7 @@ export default memo(function ChatComposer({
           data-drag-counter={dragCounter.current}
         >
           {dragging && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[26px] border-2 border-dashed border-[var(--primary)]/50 bg-[var(--primary)]/[0.04]">
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[22px] border-2 border-dashed border-[var(--primary)]/50 bg-[color-mix(in_srgb,var(--card)_94%,var(--primary))]">
               <div className="flex flex-col items-center gap-1 text-[var(--primary)]">
                 <Paperclip size={22} strokeWidth={1.6} />
                 <span className="text-[13px] font-medium">
@@ -705,7 +706,7 @@ export default memo(function ChatComposer({
             // The reference zone reads as its own layer: a faint muted band
             // with a hairline against the input area, following the card's
             // top radius.
-            <div className="rounded-t-[26px] border-b border-[var(--border)]/30 bg-[var(--muted)]/30 px-4 pb-2 pt-2.5">
+            <div className="rounded-t-[22px] border-b border-[var(--border)]/40 bg-[var(--muted)]/35 px-4 pb-2 pt-2.5">
               {/* Narrower than the composer on purpose — long titles
                   truncate early so the tree reads as an annotation, not a
                   content row. */}

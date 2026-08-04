@@ -7,13 +7,16 @@ import {
   useEffect,
   useState,
 } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useDevice } from "@/hooks/useDevice";
 import type { ReactNode } from "react";
+import {
+  BrandLockup,
+  PRODUCT_NAME_ZH,
+} from "@/components/common/BrandLockup";
 
 /* Lets the sidebar dismiss the drawer after a nav click without every layout
    threading a callback down through WorkspaceSidebar/UtilitySidebar. Null on
@@ -77,12 +80,12 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
     <SidebarDrawerContext.Provider value={{ close }}>
       {/* dvh, not vh: iOS Safari's 100vh includes the retracted address bar, so
           a vh-sized shell pushes the composer under it. */}
-      <div className="flex h-dvh overflow-hidden">
+      <div className="flex h-dvh overflow-hidden bg-[var(--background)]">
         {drawerOpen ? (
           <div
             onClick={close}
             aria-hidden
-            className="fixed inset-0 z-40 bg-black/40 md:hidden"
+            className="fixed inset-0 z-40 bg-[var(--overlay)] backdrop-blur-[2px] md:hidden"
           />
         ) : null}
 
@@ -92,39 +95,26 @@ export default function AppShell({ sidebar, children }: AppShellProps) {
             half `max-md:` cannot express, hence useDevice(). */}
         <div
           inert={isMobile && !drawerOpen ? true : undefined}
-          className={`max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-xl max-md:transition-transform max-md:duration-200 max-md:ease-out ${
+          className={`max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-[var(--q-shadow-floating)] max-md:transition-transform max-md:duration-[var(--q-motion-base)] max-md:ease-[var(--q-ease-out)] ${
             drawerOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full"
           }`}
         >
           {sidebar}
         </div>
 
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[var(--background)]">
-          <div className="flex h-11 shrink-0 items-center gap-1 border-b border-[var(--border)] px-2 md:hidden">
+        <main className="qlearn-workspace flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex h-14 shrink-0 items-center gap-2 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_88%,transparent)] px-3 backdrop-blur-xl md:hidden">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label={t("Open navigation")}
               aria-expanded={drawerOpen}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]/55 hover:text-[var(--foreground)]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--q-radius-control)] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]/65 hover:text-[var(--foreground)]"
             >
               <Menu size={18} strokeWidth={1.7} />
             </button>
-            <Link href="/" className="flex items-center gap-1.5">
-              <Image
-                src="/logo.png"
-                alt="DeepTutor"
-                width={20}
-                height={20}
-                className="h-5 w-5"
-              />
-              <Image
-                src="/banner.png"
-                alt="DeepTutor"
-                width={897}
-                height={236}
-                className="h-[18px] w-auto"
-              />
+            <Link href="/" aria-label={PRODUCT_NAME_ZH}>
+              <BrandLockup markSize={20} />
             </Link>
           </div>
 

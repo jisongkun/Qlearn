@@ -217,27 +217,64 @@ export default function SpaceDashboard() {
     };
   }, []);
 
+  const loadedValues = Object.values(counts).filter(
+    (value): value is number => typeof value === "number",
+  );
+  const totalItems = loadedValues.reduce((sum, value) => sum + value, 0);
+
   return (
-    <div>
-      <header className="mb-8">
-        <h1 className="font-serif text-[24px] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-          {tr({ zh: "学习空间", en: "Learning Space" })}
-        </h1>
-        <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-[var(--muted-foreground)]">
-          {tr({
-            zh: "你的对话、智能体、笔记与练习，集中在一处 —— 从这里进入。",
-            en: "Your conversations, agents, notebooks, and practice in one place — enter from here.",
-          })}
-        </p>
+    <div className="pb-8">
+      <header className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
+        <div>
+          <p className="mb-3 text-[10px] font-semibold tracking-[0.16em] text-[var(--primary)]">
+            {tr({ zh: "全学 · 智能学习空间", en: "QLEARN · LEARNING SPACE" })}
+          </p>
+          <h1 className="max-w-3xl font-serif text-[clamp(2rem,5vw,2.75rem)] font-medium leading-[1.12] tracking-[-0.04em] text-[var(--foreground)]">
+            {tr({
+              zh: "你的学习，正在形成体系。",
+              en: "Your learning is becoming a system.",
+            })}
+          </h1>
+          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-[var(--muted-foreground)] sm:text-[14px]">
+            {tr({
+              zh: "从对话、资料和练习中积累可持续的理解与进度。所有入口继续使用原有数据和权限。",
+              en: "Turn conversations, materials, and practice into durable understanding and visible progress.",
+            })}
+          </p>
+        </div>
+
+        <div className="rounded-[18px] bg-[var(--foreground)] px-5 py-4 text-[var(--background)] shadow-[var(--q-shadow-card)]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
+            {tr({ zh: "学习空间概览", en: "Workspace overview" })}
+          </p>
+          <div className="mt-3 flex items-end justify-between gap-5">
+            <div>
+              <p className="text-[28px] font-semibold leading-none tabular-nums">
+                {totalItems.toLocaleString()}
+              </p>
+              <p className="mt-1.5 text-[10px] opacity-65">
+                {tr({ zh: "项内容已整理", en: "items organized" })}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[18px] font-semibold leading-none tabular-nums">
+                {loadedValues.length}/{ALL_ITEMS.length}
+              </p>
+              <p className="mt-1.5 text-[10px] opacity-65">
+                {tr({ zh: "区域已同步", en: "areas synced" })}
+              </p>
+            </div>
+          </div>
+        </div>
       </header>
 
-      <div className="space-y-9">
+      <div className="space-y-10">
         {GROUPS.map((group) => (
           <section key={group.label.en}>
-            <h2 className="mb-3 px-0.5 font-serif text-[16px] font-semibold tracking-tight text-[var(--foreground)]">
+            <h2 className="mb-4 px-0.5 font-serif text-[18px] font-medium tracking-[-0.02em] text-[var(--foreground)]">
               {tr(group.label)}
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {group.items.map((item) => (
                 <DashboardCard
                   key={item.key}
@@ -273,12 +310,12 @@ function DashboardCard({
   return (
     <Link
       href={item.href}
-      className="group relative flex flex-col rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--foreground)]/20 hover:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)]"
+      className="group relative flex min-h-[176px] flex-col rounded-[16px] border border-[var(--border)] bg-[var(--card)] p-4 shadow-[var(--q-shadow-quiet)] transition-[border-color,background-color,box-shadow,transform] duration-[var(--q-motion-base)] ease-[var(--q-ease-out)] hover:-translate-y-1 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--primary))] hover:shadow-[var(--q-shadow-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] motion-reduce:transform-none"
     >
       <div className="flex items-start gap-3">
         <span
           aria-hidden
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.tile}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] transition-transform duration-[var(--q-motion-fast)] group-hover:scale-105 motion-reduce:transform-none ${item.tile}`}
         >
           <Icon size={18} strokeWidth={1.7} />
         </span>
@@ -303,10 +340,10 @@ function DashboardCard({
         </div>
         <ArrowUpRight
           size={16}
-          className="shrink-0 text-[var(--muted-foreground)]/40 transition-colors group-hover:text-[var(--foreground)]"
+          className="shrink-0 text-[var(--muted-foreground)]/40 transition-[color,transform] duration-[var(--q-motion-fast)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--primary)] motion-reduce:transform-none"
         />
       </div>
-      <p className="mt-3 text-[12.5px] leading-relaxed text-[var(--muted-foreground)]">
+      <p className="mt-auto pt-5 text-[12.5px] leading-relaxed text-[var(--muted-foreground)]">
         {tr(item.blurb)}
       </p>
     </Link>
