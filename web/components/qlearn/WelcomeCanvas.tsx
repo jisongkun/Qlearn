@@ -151,7 +151,7 @@ export default function WelcomeCanvas({
 
         <motion.section
           {...enter(0.12, 18)}
-          className="relative min-h-[340px] overflow-hidden rounded-[30px] border border-[color-mix(in_srgb,var(--border)_72%,transparent)] bg-white shadow-[var(--q-shadow-card)] sm:min-h-[390px] lg:col-span-6 lg:min-h-[420px]"
+          className="relative min-h-[340px] overflow-hidden sm:min-h-[390px] lg:col-span-6 lg:min-h-[420px]"
           aria-label={t("QLearn learning companion")}
         >
           <motion.div
