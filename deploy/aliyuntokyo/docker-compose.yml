@@ -1,0 +1,32 @@
+name: qlearn
+
+services:
+  qlearn:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: production
+    image: qlearn:aliyuntokyo
+    container_name: qlearn
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "127.0.0.1:${QLEARN_FRONTEND_PORT:-13400}:3782"
+    volumes:
+      - "${QLEARN_DATA_DIR:-/opt/docker/qlearn/data}:/app/data"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - http://127.0.0.1:8001/
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
