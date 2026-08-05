@@ -8,7 +8,7 @@
 >
 > 最近一次仓库盘点：2026-08-05
 >
-> 当前登记基线：DeepTutor `v1.5.8`，提交 `44fa7a1552b88f9d8ce2c22259128a15ae2eb0c8`
+> 当前登记基线：DeepTutor `v1.5.9`，提交 `37c3db6df7e886aee4f61c97ec5e618b8ab379e8`
 
 本文是 Qlearn 作为 DeepTutor 长期下游 fork 的维护入口。它回答五个问题：
 
@@ -45,10 +45,10 @@ Qlearn 采用四层记录，避免把所有信息堆在一篇会迅速过期的�
 | Qlearn origin | `git@github.com:jisongkun/Qlearn.git` |
 | DeepTutor upstream | `https://github.com/HKUDS/DeepTutor.git` |
 | Qlearn 当前开发分支 | `codex/qlearn-ui-redesign` |
-| 已合入上游基线 | DeepTutor `v1.5.8` / `44fa7a15` |
-| 基线后的 Qlearn 提交数 | 8 |
+| 已合入上游基线 | DeepTutor `v1.5.9` / `37c3db6d` |
+| 基线后的 Qlearn 提交数 | 11（包含 v1.5.9 merge commit、治理与升级记录提交） |
 | 盘点时上游最新 main | `37c3db6df7e886aee4f61c97ec5e618b8ab379e8`，发布线为 `v1.5.9` |
-| 当前同步缺口 | 尚未合入 `v1.5.9` |
+| 当前同步缺口 | 无（截至 2026-08-05 的 `upstream/main`） |
 
 “当前值”是盘点快照，不是永久常量。每次完成上游合并后必须更新本节的基线和同步缺口。
 
@@ -117,7 +117,7 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | ID | 状态 | 范围 | 提交 | 风险 | 摘要 |
 | --- | --- | --- | --- | --- | --- |
 | `QL-GOV-001` | active | 治理 | `ef7241ba` | 低 | 建立 Qlearn/DeepTutor 兼容合同 |
-| `QL-GOV-002` | active | 治理门禁 | 本次治理提交 | 低 | 强制所有 Agent 先读登记册，并由 CI 拦截代码改动未同步更新登记册 |
+| `QL-GOV-002` | active | 治理门禁 | `e0b9ecad` | 低 | 强制所有 Agent 先读登记册，并由 CI 拦截代码改动未同步更新登记册 |
 | `QL-UI-001` | active | 品牌与首页 | `287eb9e5`, `72441076` | 中 | Qlearn 品牌、登录页、首页、欢迎区和基础视觉系统 |
 | `QL-QA-001` | active | UI 验收 | `16857118` | 低 | 记录首页视觉与交互验证证据 |
 | `QL-OPS-001` | active | 测试部署 | `7cd0646a`, `3840e453` | 中 | 阿里云东京 Docker Compose 与 OpenResty 拓扑 |
@@ -153,7 +153,7 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 ### QL-GOV-002 — Agent 必读与登记册 CI 门禁
 
 - 状态：`active`
-- 首次提交：引入本登记项的治理提交
+- 首次提交：`e0b9ecadf12e31df5c928478cddf778eb2d33eff`
 - 主要路径：`AGENTS.md`、`.github/workflows/fork-registry.yml`、本文
 - 目的：保证后续 Agent 在任何代码、配置、依赖、部署或上游同步工作前完整阅读本文；代码变更未同步更新本文时，由 PR CI 直接失败。
 - 行为不变量：不改变 Qlearn 产品运行时、API、WebSocket、认证或持久化行为。
@@ -463,7 +463,7 @@ npm run build
 
 ### 8.7 上游升级记录
 
-#### DeepTutor v1.5.9（进行中）
+#### DeepTutor v1.5.9（已完成）
 
 | 字段 | 记录 |
 | --- | --- |
@@ -475,11 +475,19 @@ npm run build
 | 上游源码差异 | 73 个非构建产物路径；另含上游提交的 `web/.next-deeptutor/` 构建产物 4,322 个文件 |
 | 与 dirty worktree 重叠 | 首页 page、英文 locale、中文 locale，共 3 个路径 |
 | 初始受影响 QL ID | `QL-UI-001`、`QL-UI-002`、`QL-UI-003`；另重点验证上游 auth、orchestrator、settings、provider 与 embedding 变更 |
-| 计划验证 | 前端 lint、Node tests、i18n、build；上游受影响的 Python 测试；API proxy、auth、chat WS、KB 与冲突路由 smoke test |
-| 计划部署 | 验证通过后部署测试环境；记录实际部署 SHA 与 smoke test 结果 |
-| 当前状态 | `preflight` |
-
-完成合并后必须在此记录 merge commit、逐项 reconciliation、测试结果、测试环境部署 SHA、smoke test 及遗留问题；随后把状态改为 `complete`。
+| 合并结果 | merge commit `98a2ab1ebf6755d988825c62ba27fd149b8f11db`；保留上游历史，`upstream/main` 是当前 HEAD 的祖先；定向 stash 自动恢复，3 个重叠文件无冲突 |
+| QL reconciliation | `QL-UI-001` 保留，下游视觉层与上游会话标题/首屏语言修复同时存在；`QL-UI-002`、`QL-UI-003` 恢复为 pending；`QL-BE-001` 未被覆盖；`QL-OPS-001/002` 已使用完整 `/app/data` 挂载，不需要执行 v1.5.9 GHCR 单文件挂载迁移；其余登记项无语义变化 |
+| 前端验证 | `npm run lint`：0 errors / 38 warnings；`npm run test:node`：380/380 passed；`npm run i18n:check`：locale parity 通过，非严格审计仅报告既有潜在项；`npm run build`：成功，57 routes |
+| Python 验证 | 在与生产镜像一致的隔离容器环境运行测试：286 passed / 1 skipped / 1 warning；宿主机缺少 Python 项目依赖，因此未把宿主失败误记为代码失败 |
+| 镜像验证 | `qlearn-test:aliyuntokyo`，image ID `sha256:25bb72f29ecd6cd929d5b8cd466522bfc5969f700aa4aab49ec0d5a7077e8f32`；确认 DeepTutor `1.5.9`、Manim `0.20.1` 与 `GeminiEmbeddingAdapter` 可导入 |
+| 测试部署 | 2026-08-05 21:44（Asia/Shanghai）重建 `qlearn-test`；容器 `healthy`；继续挂载 `/opt/docker/qlearn-test/data -> /app/data`；宿主仅监听 `127.0.0.1:13400` |
+| Smoke test | `http://127.0.0.1:13400/` 与 `https://qlearntest.jisongkun.tech/` 均按 auth gate 跳转 `/login?next=%2F` 并最终返回 HTTP 200；后端和前端进程均进入 RUNNING；启动日志无应用错误 |
+| Git 远端状态 | 向 `origin/codex/qlearn-ui-redesign` 推送时，GitHub 拒绝当前 SSH 身份 `ShinJiEDU` 对 `jisongkun/Qlearn.git` 的写入；本地升级提交和测试部署均已完成，但 GitHub 分支尚未更新，取得正确仓库权限后必须补推 |
+| 部署源码标识 | 已提交基线 HEAD `98a2ab1e` 加升级前已存在的 pending 工作区；tracked patch fingerprint `562066cc9a9ce54e3ca9b7410506bf40b669827c`；镜像内新增 `TopNavigation.tsx` blob `55f1343583a2a243fa677ea570c55f36ee0c181e`。这不是完全可复现的发布 SHA，后续必须把 pending 改动按 QL ID 提交后再构建 |
+| 未覆盖的人工流程 | 未使用真实登录账号执行 chat WebSocket、KB 索引、Codex OAuth 和 Math Animator 实际渲染；自动化契约/构建与进程 smoke 已通过，这些登录后流程应在提升到主分支前补测 |
+| 上游遗留 | 官方 v1.5.9 tag 自带 `web/.next-deeptutor/` 4,322 个构建产物文件，本次为保持上游历史原样合入；后续单独评估上游清理，不在同步 merge 中删除 |
+| 回滚说明 | 构建前旧 `qlearn-test:aliyuntokyo` 标签未另存，无法对旧运行镜像做精确标签回滚；可从 v1.5.8 与已有 Qlearn 提交重建。以后部署必须先给当前 image ID 添加不可变 rollback 标签 |
+| 当前状态 | `complete` |
 
 ## 9. Pull Request 检查清单
 
@@ -577,7 +585,10 @@ fix(runtime): avoid external proxy loop [QL-BE-001]
 
 1. 将 pending 顶部导航、首页对齐、Viewer 行为、测试域名按 QL ID 分成独立提交；
 2. 处理根目录临时截图和 `.playwright-mcp/`，只保留精选证据；
-3. 合并 DeepTutor `v1.5.9`，并更新本文基线；
-4. 评估将 `QL-BE-001` 作为通用修复贡献上游；
-5. 若修复 Codex OAuth/模型兼容层，先建立新的 `QL-BE-*` 登记项和 ADR，不得混入 UI 或上游同步提交；
-6. 每次部署记录“部署提交 SHA”，避免把工作区状态误认为线上状态。
+3. 将 pending 工作区按 QL ID 提交并重新构建，使部署恢复为可由单一 Git SHA 复现；
+4. 在提升到主分支前，用真实账号补测 chat WebSocket、KB、Codex OAuth 和 Math Animator 渲染；
+5. 评估上游 v1.5.9 自带的 `web/.next-deeptutor/` 构建产物，优先推动上游清理，避免在同步 merge 中制造大面积删除；
+6. 评估将 `QL-BE-001` 作为通用修复贡献上游；
+7. 若修复 Codex OAuth/模型兼容层，先建立新的 `QL-BE-*` 登记项和 ADR，不得混入 UI 或上游同步提交；
+8. 每次部署前先给当前镜像加不可变 rollback 标签，并记录“部署提交 SHA”，避免把工作区状态误认为线上状态。
+9. 修复本机 GitHub SSH 身份或为 `ShinJiEDU` 授予 `jisongkun/Qlearn` 写权限，然后推送 `codex/qlearn-ui-redesign`；未补推前不要声称远端仓库已升级。
