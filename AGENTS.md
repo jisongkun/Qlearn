@@ -8,6 +8,26 @@ design, responsive behavior, accessibility, and frontend interaction quality
 without changing DeepTutor's actual capabilities or breaking the ability to
 merge future upstream releases.
 
+The downstream change registry and upstream merge runbook live in
+`FORK-MAINTENANCE.md`. **Every agent and contributor must read that file in
+full before changing code, configuration, dependencies, deployment, or
+performing an upstream synchronization.** This is a mandatory preflight, not
+optional background reading.
+
+For every Qlearn-specific change, update `FORK-MAINTENANCE.md` in the same
+focused commit when behavior, build, deployment, backend, API, event,
+persistence, or an existing downstream patch is introduced, changed,
+superseded, upstreamed, or removed. Before an upstream merge, record the target
+version/commit, current baseline, dirty-worktree protection plan, and affected
+QL IDs. After the merge, update the new baseline, reconciliation result for
+every affected QL ID, verification evidence, deployment result, and remaining
+follow-ups. An upgrade is not complete and must not be reported or deployed as
+complete while this registry is missing or stale.
+
+Pull requests are guarded by `.github/workflows/fork-registry.yml`: relevant
+product or deployment changes must include a registry update. Do not bypass or
+weaken this guard merely to make a change pass CI.
+
 This contract is mandatory for all agents and contributors unless the user
 explicitly authorizes a functional or compatibility-breaking change.
 
