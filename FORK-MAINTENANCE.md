@@ -482,7 +482,7 @@ npm run build
 | 镜像验证 | `qlearn-test:aliyuntokyo`，image ID `sha256:25bb72f29ecd6cd929d5b8cd466522bfc5969f700aa4aab49ec0d5a7077e8f32`；确认 DeepTutor `1.5.9`、Manim `0.20.1` 与 `GeminiEmbeddingAdapter` 可导入 |
 | 测试部署 | 2026-08-05 21:44（Asia/Shanghai）重建 `qlearn-test`；容器 `healthy`；继续挂载 `/opt/docker/qlearn-test/data -> /app/data`；宿主仅监听 `127.0.0.1:13400` |
 | Smoke test | `http://127.0.0.1:13400/` 与 `https://qlearntest.jisongkun.tech/` 均按 auth gate 跳转 `/login?next=%2F` 并最终返回 HTTP 200；后端和前端进程均进入 RUNNING；启动日志无应用错误 |
-| Git 远端状态 | 向 `origin/codex/qlearn-ui-redesign` 推送时，GitHub 拒绝当前 SSH 身份 `ShinJiEDU` 对 `jisongkun/Qlearn.git` 的写入；本地升级提交和测试部署均已完成，但 GitHub 分支尚未更新，取得正确仓库权限后必须补推 |
+| Git 远端状态 | 2026-08-06 已将 `origin` 修正为 `git@github.com-jisongkun:jisongkun/Qlearn.git`，并让 `github.com` 默认使用 `jisongkun` 专用密钥；SSH 认证与 `git push --dry-run` 均通过。升级记录提交完成后补推实际分支 |
 | 部署源码标识 | 已提交基线 HEAD `98a2ab1e` 加升级前已存在的 pending 工作区；tracked patch fingerprint `562066cc9a9ce54e3ca9b7410506bf40b669827c`；镜像内新增 `TopNavigation.tsx` blob `55f1343583a2a243fa677ea570c55f36ee0c181e`。这不是完全可复现的发布 SHA，后续必须把 pending 改动按 QL ID 提交后再构建 |
 | 未覆盖的人工流程 | 未使用真实登录账号执行 chat WebSocket、KB 索引、Codex OAuth 和 Math Animator 实际渲染；自动化契约/构建与进程 smoke 已通过，这些登录后流程应在提升到主分支前补测 |
 | 上游遗留 | 官方 v1.5.9 tag 自带 `web/.next-deeptutor/` 4,322 个构建产物文件，本次为保持上游历史原样合入；后续单独评估上游清理，不在同步 merge 中删除 |
@@ -591,4 +591,4 @@ fix(runtime): avoid external proxy loop [QL-BE-001]
 6. 评估将 `QL-BE-001` 作为通用修复贡献上游；
 7. 若修复 Codex OAuth/模型兼容层，先建立新的 `QL-BE-*` 登记项和 ADR，不得混入 UI 或上游同步提交；
 8. 每次部署前先给当前镜像加不可变 rollback 标签，并记录“部署提交 SHA”，避免把工作区状态误认为线上状态。
-9. 修复本机 GitHub SSH 身份或为 `ShinJiEDU` 授予 `jisongkun/Qlearn` 写权限，然后推送 `codex/qlearn-ui-redesign`；未补推前不要声称远端仓库已升级。
+9. 推送 `codex/qlearn-ui-redesign`，并确认 GitHub 远端包含 v1.5.9 merge commit 与本升级记录。
