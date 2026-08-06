@@ -46,7 +46,7 @@ Qlearn 采用四层记录，避免把所有信息堆在一篇会迅速过期的�
 | DeepTutor upstream | `https://github.com/HKUDS/DeepTutor.git` |
 | Qlearn 当前开发分支 | `codex/qlearn-ui-redesign` |
 | 已合入上游基线 | DeepTutor `v1.5.9` / `37c3db6d` |
-| 基线后的 Qlearn 提交数 | 14（包含 v1.5.9 merge commit、治理与升级记录提交） |
+| 基线后的 Qlearn 提交数 | 15（包含 v1.5.9 merge commit、治理与升级记录提交） |
 | 盘点时上游最新 main | `37c3db6df7e886aee4f61c97ec5e618b8ab379e8`，发布线为 `v1.5.9` |
 | 当前同步缺口 | 无（截至 2026-08-05 的 `upstream/main`） |
 
@@ -121,7 +121,7 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | `QL-UI-001` | active | 品牌与首页 | `287eb9e5`, `72441076` | 中 | Qlearn 品牌、登录页、首页、欢迎区和基础视觉系统 |
 | `QL-QA-001` | active | UI 验收 | `16857118` | 低 | 记录首页视觉与交互验证证据 |
 | `QL-OPS-001` | active | 测试部署 | `7cd0646a`, `3840e453` | 中 | 阿里云东京 Docker Compose 与 OpenResty 拓扑 |
-| `QL-OPS-003` | active | CI/CD 治理 | 本次治理提交 | 低 | 禁用 GitHub Actions；GitHub 仅用于源码协作，测试部署在 aliyuntokyo 本机执行 |
+| `QL-OPS-003` | active | CI/CD 治理 | `6b3165e3` | 低 | 禁用 GitHub Actions；GitHub 仅用于源码协作，测试部署在 aliyuntokyo 本机执行 |
 | `QL-BUILD-001` | active | 生产镜像 | `b67975af` | 高 | 在生产镜像中加入 Math Animator 依赖 |
 | `QL-BE-001` | active | 后端运行时 | `40a4e146`, `b97b2ded` | 高 | 防止外部 API 地址造成 Next.js 代理回环 |
 
@@ -223,7 +223,7 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 ### QL-OPS-003 — 禁用 GitHub Actions 与本机部署边界
 
 - 状态：`active`
-- 首次提交：引入本登记项的 CI/CD 治理提交
+- 首次提交：`6b3165e382c7ec6c7ab5a1c1209312800baf3b40`
 - 主要路径：`AGENTS.md`、本文；GitHub 仓库 Actions 权限属于外部配置
 - 目的：GitHub 只承担源码协作，不运行 Qlearn CI、release、镜像发布或部署，避免 PR push、上游 release workflow 或误操作触发远端执行。
 - 当前配置：2026-08-06 已通过 GitHub repository Actions permissions 将 `jisongkun/Qlearn` 设置为 `enabled=false`；删除 Qlearn 自建的 `fork-registry.yml`，上游 `tests.yml`、`pypi-release.yml` 和 `docker-release.yml` 仅为减少 merge churn 而保留，禁止启用或 dispatch。
@@ -495,7 +495,7 @@ npm run build
 | 镜像验证 | `qlearn-test:aliyuntokyo`，image ID `sha256:25bb72f29ecd6cd929d5b8cd466522bfc5969f700aa4aab49ec0d5a7077e8f32`；确认 DeepTutor `1.5.9`、Manim `0.20.1` 与 `GeminiEmbeddingAdapter` 可导入 |
 | 测试部署 | 2026-08-05 21:44（Asia/Shanghai）重建 `qlearn-test`；容器 `healthy`；继续挂载 `/opt/docker/qlearn-test/data -> /app/data`；宿主仅监听 `127.0.0.1:13400` |
 | Smoke test | `http://127.0.0.1:13400/` 与 `https://qlearntest.jisongkun.tech/` 均按 auth gate 跳转 `/login?next=%2F` 并最终返回 HTTP 200；后端和前端进程均进入 RUNNING；启动日志无应用错误 |
-| Git 远端状态 | 2026-08-06 已将 `origin` 修正为 `git@github.com-jisongkun:jisongkun/Qlearn.git`，并让 `github.com` 默认使用 `jisongkun` 专用密钥；升级分支已推送至 commit `88b315de` |
+| Git 远端状态 | 2026-08-06 已将 `origin` 修正为 `git@github.com-jisongkun:jisongkun/Qlearn.git`，并让 `github.com` 默认使用 `jisongkun` 专用密钥；升级与 CI/CD 治理已推送至 commit `6b3165e3` |
 | 部署源码标识 | 已提交基线 HEAD `98a2ab1e` 加升级前已存在的 pending 工作区；tracked patch fingerprint `562066cc9a9ce54e3ca9b7410506bf40b669827c`；镜像内新增 `TopNavigation.tsx` blob `55f1343583a2a243fa677ea570c55f36ee0c181e`。这不是完全可复现的发布 SHA，后续必须把 pending 改动按 QL ID 提交后再构建 |
 | 未覆盖的人工流程 | 未使用真实登录账号执行 chat WebSocket、KB 索引、Codex OAuth 和 Math Animator 实际渲染；自动化契约/构建与进程 smoke 已通过，这些登录后流程应在提升到主分支前补测 |
 | 上游遗留 | 官方 v1.5.9 tag 自带 `web/.next-deeptutor/` 4,322 个构建产物文件，本次为保持上游历史原样合入；后续单独评估上游清理，不在同步 merge 中删除 |
@@ -604,4 +604,3 @@ fix(runtime): avoid external proxy loop [QL-BE-001]
 6. 评估将 `QL-BE-001` 作为通用修复贡献上游；
 7. 若修复 Codex OAuth/模型兼容层，先建立新的 `QL-BE-*` 登记项和 ADR，不得混入 UI 或上游同步提交；
 8. 每次部署前先给当前镜像加不可变 rollback 标签，并记录“部署提交 SHA”，避免把工作区状态误认为线上状态。
-9. 将本次 GitHub Actions 禁用和 Agent 部署边界提交并推送，确认仓库级 Actions 权限保持 disabled。
