@@ -24,9 +24,20 @@ every affected QL ID, verification evidence, deployment result, and remaining
 follow-ups. An upgrade is not complete and must not be reported or deployed as
 complete while this registry is missing or stale.
 
-Pull requests are guarded by `.github/workflows/fork-registry.yml`: relevant
-product or deployment changes must include a registry update. Do not bypass or
-weaken this guard merely to make a change pass CI.
+GitHub Actions is disabled for `jisongkun/Qlearn`. Do not enable or dispatch
+repository workflows for CI, release, image publishing, or deployment unless
+the user explicitly reverses this policy. Upstream-owned workflow files remain
+in the fork only to reduce upstream merge churn; their presence is not
+authorization to run them. Enforce the registry contract through this file,
+local review, and the required local/container checks.
+
+Qlearn currently has only a development/test deployment on `aliyuntokyo` in
+`/home/shinji/Developer/Qlearn-test`. Build and restart it locally with
+`deploy/aliyuntokyo/docker-compose.yml`. There is no Qlearn production
+deployment today. If production is later authorized, publish source from the
+authoritative `*-test` checkout to `hw135` via SSH/rsync and run Docker Compose
+there; do not introduce GitHub Actions deployment. A Git push never authorizes
+or performs deployment.
 
 This contract is mandatory for all agents and contributors unless the user
 explicitly authorizes a functional or compatibility-breaking change.
