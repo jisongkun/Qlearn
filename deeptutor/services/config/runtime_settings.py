@@ -529,10 +529,7 @@ class RuntimeSettingsService:
             # back to the external browser URL here: in a reverse-proxy deployment
             # that would route the request back through the frontend and create a
             # proxy loop.
-            "DEEPTUTOR_API_BASE_URL": (
-                system["next_public_api_base"]
-                or f"http://localhost:{system['backend_port']}"
-            ),
+            "DEEPTUTOR_API_BASE_URL": system["next_public_api_base"] or f"http://localhost:{system['backend_port']}",
             "DEEPTUTOR_AUTH_ENABLED": _bool_env(auth["enabled"]),
             "POCKETBASE_URL": integrations["pocketbase_url"],
             "POCKETBASE_PORT": str(integrations["pocketbase_port"]),
