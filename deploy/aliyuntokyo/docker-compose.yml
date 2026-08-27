@@ -1,4 +1,4 @@
-name: qlearn
+name: qlearn-test
 
 services:
   qlearn:
@@ -6,14 +6,14 @@ services:
       context: ../..
       dockerfile: Dockerfile
       target: production
-    image: qlearn:aliyuntokyo
-    container_name: qlearn
+    image: qlearn-test:aliyuntokyo
+    container_name: qlearn-test
     restart: unless-stopped
     stop_grace_period: 30s
     ports:
       - "127.0.0.1:${QLEARN_FRONTEND_PORT:-13400}:3782"
     volumes:
-      - "${QLEARN_DATA_DIR:-/opt/docker/qlearn/data}:/app/data"
+      - "${QLEARN_DATA_DIR:-/data/opt/docker/qlearn-test/data}:/app/data"
     healthcheck:
       test:
         - CMD

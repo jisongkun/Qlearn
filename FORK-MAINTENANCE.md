@@ -227,7 +227,7 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 - 主要路径：`AGENTS.md`、本文；GitHub 仓库 Actions 权限属于外部配置
 - 目的：GitHub 只承担源码协作，不运行 Qlearn CI、release、镜像发布或部署，避免 PR push、上游 release workflow 或误操作触发远端执行。
 - 当前配置：2026-08-06 已通过 GitHub repository Actions permissions 将 `jisongkun/Qlearn` 设置为 `enabled=false`；删除 Qlearn 自建的 `fork-registry.yml`，上游 `tests.yml`、`pypi-release.yml` 和 `docker-release.yml` 仅为减少 merge churn 而保留，禁止启用或 dispatch。
-- 部署边界：Qlearn 当前只有 `aliyuntokyo:/home/shinji/Developer/Qlearn-test` 测试环境，使用本机 Docker Compose；当前没有生产环境。未来生产若获授权，遵循 aliyuntokyo 权威 `*-test` checkout 经 SSH/rsync 发布到 `hw135`，不得使用 GitHub Actions。
+- 部署边界：Qlearn 当前只有 `aliyuntokyo:/data/home/shinji/Developer/Qlearn-test` 测试环境，使用本机 Docker Compose；当前没有生产环境。未来生产若获授权，遵循 aliyuntokyo 权威 `*-test` checkout 经 SSH/rsync 发布到 `hw135`，不得使用 GitHub Actions。
 - 验证：检查 GitHub Actions permissions 为 disabled；确认没有 queued/in_progress run；本地测试和部署按本文及 `sjopswiki` 执行。
 - 上游升级：上游 workflow 文件可随 merge 更新但不得启用；不要为禁用 Actions 而反复删除上游文件，从而制造无意义冲突。
 - 回滚：只有用户明确改变 CI/CD 策略后才能重新启用 Actions，并需先更新 `AGENTS.md`、本文与 `sjopswiki`。
@@ -300,10 +300,12 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 
 ### QL-OPS-002 — 测试环境命名与域名
 
-- 状态：`pending`
-- 变化：`qlearn` → `qlearn-test`；域名 → `qlearntest.jisongkun.tech`；默认数据目录 → `/opt/docker/qlearn-test/data`。
+- 状态：`active`
+- 变化：`qlearn` → `qlearn-test`；域名 → `qlearntest.jisongkun.tech`；默认数据目录 → `/data/opt/docker/qlearn-test/data`。
 - 风险：数据目录变更可能造成“新容器看不到旧数据”的假丢失。
-- 提交前要求：确认旧数据是否迁移或显式保留旧 `QLEARN_DATA_DIR`；记录回滚域名和证书路径。
+- 2026-08-27 数据盘收敛：checkout 改为 `/data/home/shinji/Developer/Qlearn-test`，Compose 默认数据目录直接改为 `/data/opt/docker/qlearn-test/data`，不保留旧路径 bind mount 或软链接。
+- 验证：容器 Compose working directory、config file 和 `/app/data` Source 均指向 `/data`；健康检查通过，权威数据目录约 65 MiB。
+- 回滚：停止容器，将数据一致性复制到明确选定的新目标，更新 `QLEARN_DATA_DIR` 后重建；不要依赖旧 `/opt/docker` 路径自动创建空数据目录。
 
 ## 7. 未来后端功能的兼容设计规则
 
@@ -493,7 +495,7 @@ npm run build
 | 前端验证 | `npm run lint`：0 errors / 38 warnings；`npm run test:node`：380/380 passed；`npm run i18n:check`：locale parity 通过，非严格审计仅报告既有潜在项；`npm run build`：成功，57 routes |
 | Python 验证 | 在与生产镜像一致的隔离容器环境运行测试：286 passed / 1 skipped / 1 warning；宿主机缺少 Python 项目依赖，因此未把宿主失败误记为代码失败 |
 | 镜像验证 | `qlearn-test:aliyuntokyo`，image ID `sha256:25bb72f29ecd6cd929d5b8cd466522bfc5969f700aa4aab49ec0d5a7077e8f32`；确认 DeepTutor `1.5.9`、Manim `0.20.1` 与 `GeminiEmbeddingAdapter` 可导入 |
-| 测试部署 | 2026-08-05 21:44（Asia/Shanghai）重建 `qlearn-test`；容器 `healthy`；继续挂载 `/opt/docker/qlearn-test/data -> /app/data`；宿主仅监听 `127.0.0.1:13400` |
+| 测试部署 | 2026-08-05 21:44（Asia/Shanghai）重建 `qlearn-test`；容器 `healthy`；继续挂载 `/data/opt/docker/qlearn-test/data -> /app/data`；宿主仅监听 `127.0.0.1:13400` |
 | Smoke test | `http://127.0.0.1:13400/` 与 `https://qlearntest.jisongkun.tech/` 均按 auth gate 跳转 `/login?next=%2F` 并最终返回 HTTP 200；后端和前端进程均进入 RUNNING；启动日志无应用错误 |
 | Git 远端状态 | 2026-08-06 已将 `origin` 修正为 `git@github.com-jisongkun:jisongkun/Qlearn.git`，并让 `github.com` 默认使用 `jisongkun` 专用密钥；升级与 CI/CD 治理已推送至 commit `6b3165e3` |
 | 部署源码标识 | 已提交基线 HEAD `98a2ab1e` 加升级前已存在的 pending 工作区；tracked patch fingerprint `562066cc9a9ce54e3ca9b7410506bf40b669827c`；镜像内新增 `TopNavigation.tsx` blob `55f1343583a2a243fa677ea570c55f36ee0c181e`。这不是完全可复现的发布 SHA，后续必须把 pending 改动按 QL ID 提交后再构建 |

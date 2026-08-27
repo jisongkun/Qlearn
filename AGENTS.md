@@ -32,7 +32,7 @@ authorization to run them. Enforce the registry contract through this file,
 local review, and the required local/container checks.
 
 Qlearn currently has only a development/test deployment on `aliyuntokyo` in
-`/home/shinji/Developer/Qlearn-test`. Build and restart it locally with
+`/data/home/shinji/Developer/Qlearn-test`. Build and restart it locally with
 `deploy/aliyuntokyo/docker-compose.yml`. There is no Qlearn production
 deployment today. If production is later authorized, publish source from the
 authoritative `*-test` checkout to `hw135` via SSH/rsync and run Docker Compose
