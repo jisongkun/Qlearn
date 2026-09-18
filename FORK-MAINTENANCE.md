@@ -46,9 +46,9 @@ Qlearn 采用四层记录，避免把所有信息堆在一篇会迅速过期的�
 | DeepTutor upstream | `https://github.com/HKUDS/DeepTutor.git` |
 | Qlearn 当前同步分支 | `codex/qlearn-ui-redesign`（权威测试目录已快进到 v1.6.8 兼容提交；隔离分支 `sync/upstream-v1.6.8` 保留供审计） |
 | 已合入上游基线 | DeepTutor `v1.6.8` 后 3 个修复 / `897fce52` |
-| 基线后的 Qlearn 提交数 | 20（包含本次测试部署登记提交） |
+| 基线后的 Qlearn 提交数 | 24（包含本次交互教材扩展实现与部署登记） |
 | 盘点时上游最新 main | `897fce52f24bf22e6e50d8a3e4df532632a26322`，最近发布 tag 为 `v1.6.8` |
-| 当前同步缺口 | 无（截至 2026-09-18 部署前再次抓取的 `upstream/main`）；权威测试目录已整合并部署，尚未推送远端 |
+| 当前同步缺口 | 无（截至 2026-09-18 部署前再次抓取的 `upstream/main`）；权威测试目录已整合、推送并部署 |
 
 “当前值”是盘点快照，不是永久常量。每次完成上游合并后必须更新本节的基线和同步缺口。
 
@@ -131,8 +131,8 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | `QL-BE-001` | active | 后端运行时 | `40a4e146`, `b97b2ded` | 高 | 防止外部 API 地址造成 Next.js 代理回环 |
 | `QL-BE-002` | active | BookEngine 内容校验 | `e1910f3e` | 中 | 清洗交互 HTML，并拒绝无控件/事件的伪交互和失败占位题 |
 | `QL-DATA-001` | active | 课程内容策展 | `e1910f3e` | 低 | 为无线传感网络理论教材安装 12 个确定性交互、修复图示与测验 |
-| `QL-BE-003` | pending | 原生交互提示词预览 | 待提交 | 中 | 复用 BookEngine 原生提示词构造，并提供登录态只读预览端点 |
-| `QL-DATA-002` | pending | 课程交互扩展 | 待提交 | 低 | 每章新增 5 个确定性交互，并按理论小节锚点分散插入 |
+| `QL-BE-003` | active | 原生交互提示词预览 | `a8e2ae06` | 中 | 复用 BookEngine 原生提示词构造，并提供登录态只读预览端点 |
+| `QL-DATA-002` | active | 课程交互扩展 | `a8e2ae06` | 低 | 每章新增 5 个确定性交互，并按理论小节锚点分散插入 |
 
 ### 4.2 本地保护副本与临时 QA 证据
 
@@ -291,30 +291,31 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 
 ### QL-BE-003 — BookEngine 原生交互提示词预览
 
-- 状态：`pending`
-- 首次提交：待提交
+- 状态：`active`
+- 首次提交：`a8e2ae06`
 - 最近验证上游基线：DeepTutor `897fce52`
 - 路径：`deeptutor/book/blocks/interactive.py`、`deeptutor/api/routers/book.py` 及对应测试
 - 冲突风险：中；在上游 BookEngine 与 books router 中新增纯提示词构造器和登录态只读端点，不改变既有生成入口、事件或持久化 schema。
 - 目的：让确定性教材策展在不触发模型生成的情况下，调用平台真实的 interactive prompt；同一个纯函数继续供 `InteractiveGenerator` 使用，避免预览与实际生成的提示词漂移。
 - API：`GET /api/books/interactive-prompt?book_id=...&page_id=...&focus=...&interaction=...`，返回 `user_prompt` 与 `history_context`；不写数据、不调用模型。
 - 行为不变量：既有交互生成仍使用原提示词模板、同样的章节摘要与学习目标；无效书籍、页面或章节继续返回 404；端点沿用 books router 的认证边界。
-- 验证：纯函数定向测试、路由导入、登录态真实 API 调用和既有交互生成测试。
+- 验证：2026-09-18 通过纯函数定向测试、路由注册导入、Ruff 与相关 pytest；在隔离候选容器中通过真实 HTTP API 为 12 章的 60 个新增主题逐一输出原生 prompt，章节标题、焦点与 history context 全部匹配。随镜像 `sha256:b44360e44e150201b4ea4a5e02b5238908ba14ec334ed6eaf07d086a2e9adb4a` 部署到测试站。
 - 回滚：删除新增 GET 路由与纯函数，并将 `InteractiveGenerator` 恢复为内联构造提示词；教材中已记录的提示词元数据不影响显示。
 - 上游化建议：高；提示词预览与生成复用属于通用 BookEngine authoring/QA 能力。
 
 ### QL-DATA-002 — 无线传感网络理论交互扩展
 
-- 状态：`pending`
-- 首次提交：待提交
+- 状态：`active`
+- 首次提交：`a8e2ae06`
 - 最近验证上游基线：DeepTutor `897fce52`
 - 路径：`scripts/expand_wsn_interactives.py`、`tests/book/test_wsn_interactive_expansion.py`；运行数据仅作用于指定书籍 `bk_a86a9945fc`
 - 冲突风险：低；新增课程专用迁移脚本与测试，不修改通用存储格式。
 - 目的：在原有每章 1 个交互的基础上，为 12 个理论章节分别新增 5 个中文参数探索块，最终共 72 个；不加入实验指导。
 - 放置规则：每个新增块必须绑定一个唯一的小节标题，迁移时把多小节 section 无损拆为单小节块并紧随对应理论内容插入；正文、导语、总结、来源锚点和原有非 section 块顺序保持不变。任何锚点缺失、重复或章节数量不符均拒绝写入。
 - 数据边界：真实写入要求显式备份目录；确定性 ID 使重复运行保持 60 个扩展块；页面 JSON 原子替换；每块记录 `QL-BE-003` 生成的原生 prompt 与 history context。
-- 验证：60 个部件的控件/事件/自包含检查、12 章锚点唯一性、隔离副本迁移、正文逐项等值、原块 ID 顺序、72 个交互总数及浏览器逐章操作。
-- 回滚：将扩展前备份的 `pages/*.json` 原子恢复；脚本不会在应用启动时自动执行。
+- 验证：60 个部件的控件/事件/自包含检查、12 章锚点唯一性、隔离副本迁移、正文逐项等值与原块 ID 顺序均通过；真实数据审计为 72 个 interactive、12 个 quiz（52 道题）、18 个 figure、9 组 flash cards，失败块为 0。浏览器逐章渲染 6 个交互，并对 60 个新增块逐一点击预设、确认指标变化。
+- 测试部署：2026-09-18 已写入 `qlearntest.jisongkun.tech` 的书籍 `bk_a86a9945fc`；扩展前页面备份位于 `/app/data/user/workspace/book/backups/book_bk_a86a9945fc-pre-expansion-20260918T094911Z`。运行镜像为 `sha256:b44360e44e150201b4ea4a5e02b5238908ba14ec334ed6eaf07d086a2e9adb4a`，回滚镜像标签为 `qlearn-test:rollback-pre-wsn-expansion-568b3b04`。
+- 回滚：先恢复回滚镜像标签并只重建 `qlearn` 服务，再将扩展前备份的 `pages/*.json` 原子恢复；脚本不会在应用启动时自动执行。
 - 长期保留下游的理由：课程交互规格与小节编排属于用户教材资产，不适合提交 DeepTutor 上游。
 
 ## 6. v2 UI 适配详情
