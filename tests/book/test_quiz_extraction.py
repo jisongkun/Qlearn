@@ -64,6 +64,21 @@ def test_the_question_shape_is_preserved() -> None:
     assert got[0]["options"] == {"a": "1", "b": "2"}
 
 
+def test_failure_sentinels_and_empty_answers_are_not_persisted_as_questions() -> None:
+    failed = _qa("failed")
+    failed.update(question="[Generation failed] routing derivation", correct_answer="N/A")
+    empty = _qa("empty")
+    empty["correct_answer"] = ""
+    summary = {
+        "results": [
+            {"success": True, "qa_pair": _qa("good")},
+            {"success": True, "qa_pair": failed},
+            {"success": True, "qa_pair": empty},
+        ]
+    }
+    assert [item["question_id"] for item in QuizGenerator._extract_questions(summary)] == ["good"]
+
+
 def test_the_legacy_facade_is_no_longer_imported() -> None:
     """The name may still appear in a comment; what matters is the import."""
     import ast

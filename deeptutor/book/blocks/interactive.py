@@ -67,7 +67,11 @@ class InteractiveGenerator(BlockGenerator):
 
         try:
             from deeptutor.agents.visualize.pipeline import VisualizePipeline
-            from deeptutor.agents.visualize.utils import validate_visualization
+            from deeptutor.agents.visualize.utils import (
+                has_interactive_html_behavior,
+                normalize_html_document,
+                validate_visualization,
+            )
             from deeptutor.services.llm.config import get_llm_config
 
             llm_config = get_llm_config()
@@ -91,9 +95,15 @@ class InteractiveGenerator(BlockGenerator):
             logger.warning(f"InteractiveGenerator failed: {exc}", exc_info=True)
             raise GenerationFailure(f"interactive generation failed: {exc}") from exc
 
+        code = normalize_html_document(code)
         ok, validation_error = validate_visualization(code, "html")
         if not ok:
             raise GenerationFailure(f"interactive html failed validation: {validation_error}")
+        if not has_interactive_html_behavior(code):
+            raise GenerationFailure(
+                "interactive html has no usable controls or event wiring; "
+                "a static page cannot be stored as an interactive block"
+            )
 
         return (
             {

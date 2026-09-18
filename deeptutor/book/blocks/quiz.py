@@ -103,13 +103,22 @@ class QuizGenerator(BlockGenerator):
             qa = item.get("qa_pair") or {}
             if not isinstance(qa, dict):
                 continue
+            question = str(qa.get("question") or "").strip()
+            answer = str(qa.get("correct_answer") or "").strip()
+            failure_sentinel = question.casefold().startswith("[generation failed]")
+            if not question or not answer or answer.casefold() == "n/a" or failure_sentinel:
+                logger.warning(
+                    "Skipping unusable generated question %s (empty or failure sentinel)",
+                    qa.get("question_id", ""),
+                )
+                continue
             out.append(
                 {
                     "question_id": qa.get("question_id", ""),
-                    "question": qa.get("question", ""),
+                    "question": question,
                     "question_type": qa.get("question_type", "written"),
                     "options": qa.get("options") or {},
-                    "correct_answer": qa.get("correct_answer", ""),
+                    "correct_answer": answer,
                     "explanation": qa.get("explanation", ""),
                     "difficulty": qa.get("difficulty", ""),
                     "concentration": qa.get("concentration", ""),
