@@ -15,7 +15,8 @@ from typing import Any
 import pytest
 
 from deeptutor.agents.chat.agentic_pipeline import AgenticChatPipeline
-from deeptutor.agents.chat.context_budget import (
+from deeptutor.agents.loop.agent_loop import MAX_SETTLEMENT_ROUNDS
+from deeptutor.agents.loop.context_budget import (
     LLMRequestSnapshot,
     build_context_budget,
     count_conversation_tokens,
@@ -24,8 +25,8 @@ from deeptutor.agents.chat.context_budget import (
 from deeptutor.capabilities import PromptBlock
 from deeptutor.core.context import UnifiedContext
 from deeptutor.core.stream import StreamEvent, StreamEventType
-from deeptutor.core.stream_bus import StreamBus
 from deeptutor.core.tool_protocol import ToolResult
+from deeptutor.runtime.stream_bus import StreamBus
 
 
 def _chars(text: str) -> int:
@@ -394,7 +395,7 @@ async def _stream(chunks: list[SimpleNamespace]):
 @pytest.mark.asyncio
 async def test_turn_result_carries_the_context_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "deeptutor.agents.chat.agentic_pipeline.get_llm_config",
+        "deeptutor.agents.loop.pipeline.get_llm_config",
         lambda: SimpleNamespace(
             binding="openai",
             model="gpt-test",
@@ -460,8 +461,13 @@ async def test_forced_finish_still_reports_the_tools_the_turn_carried(
     # tools from, to make the model answer. Reading the budget off that round
     # verbatim would report zero tool tokens for a turn whose schemas sat in
     # the window the entire time.
+    #
+    # Exhausting the budget means exploration *and* the bounded settlement
+    # window that follows it — settlement rounds deliberately keep tools
+    # available, so the model must keep requesting them to reach the hard
+    # finish.
     monkeypatch.setattr(
-        "deeptutor.agents.chat.agentic_pipeline.get_llm_config",
+        "deeptutor.agents.loop.pipeline.get_llm_config",
         lambda: SimpleNamespace(
             binding="openai",
             model="gpt-test",
@@ -473,7 +479,10 @@ async def test_forced_finish_still_reports_the_tools_the_turn_carried(
     )
     client = _MultiTurnChatClient(
         [
-            [_tool_call_chunk("rag", '{"query": "gd", "kb_name": "kb"}')],
+            [_tool_call_chunk("rag", '{"query": "gd", "kb_name": "kb"}')]
+            for _ in range(1 + MAX_SETTLEMENT_ROUNDS)
+        ]
+        + [
             [
                 SimpleNamespace(
                     choices=[

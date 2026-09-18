@@ -177,6 +177,7 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
             "persona": "socratic",
             "memory_references": ["summary"],
             "book_references": [{"book_id": "book-1", "page_ids": ["page-1"]}],
+            "mastery_path_id": "path-1",
             "config": {},
         }
     )
@@ -210,6 +211,7 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
     assert detail["messages"][0]["metadata"]["request_snapshot"]["bookReferences"] == [
         {"book_id": "book-1", "page_ids": ["page-1"]}
     ]
+    assert detail["messages"][0]["metadata"]["request_snapshot"]["masteryPathId"] == "path-1"
     # Chat capability now routes attached sources through the manifest +
     # ``read_source`` tool instead of inlining ``[Book Context]`` into the
     # user message. The raw user message stays raw; the book payload
@@ -227,6 +229,7 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
     assert captured["metadata"] and captured["metadata"]["book_references"] == [
         {"book_id": "book-1", "page_ids": ["page-1"]}
     ]
+    assert captured["metadata"]["mastery_path_id"] == "path-1"
     assert detail["messages"][1]["content"] == "Hello Frank"
     assert detail["preferences"] == {
         "capability": "chat",
@@ -236,11 +239,113 @@ async def test_turn_runtime_replays_events_and_materializes_messages(
         # Explicit persona in the payload is persisted as a session-level
         # preference (survives reloads; later turns fall back to it).
         "persona": "socratic",
+        "mastery_path_id": "path-1",
+        # No mode is persisted here: this turn never recorded one, and an
+        # unrecorded mode has to stay unrecorded — the tools read its absence
+        # as "enforce nothing", which is what keeps every conversation that
+        # predates modes working exactly as it did.
     }
 
     persisted_turn = await store.get_turn(turn["id"])
     assert persisted_turn is not None
     assert persisted_turn["status"] == "completed"
+    persisted_events = await store.get_turn_events(turn["id"])
+    persisted_done = next(event for event in persisted_events if event["type"] == "done")
+    assert persisted_done["seq"] > 0
+    assert persisted_done["metadata"]["assistant_message_id"] == assistant_row["id"]
+
+    # A fresh runtime (the reconnect/restart shape) replays the committed DONE
+    # instead of synthesizing a metadata-poor terminal event.
+    replay_runtime = TurnRuntimeManager(store)
+    replayed = [event async for event in replay_runtime.subscribe_turn(turn["id"])]
+    replayed_done = next(event for event in replayed if event["type"] == "done")
+    assert replayed_done["seq"] == persisted_done["seq"]
+    assert replayed_done["metadata"]["assistant_message_id"] == assistant_row["id"]
+
+
+@pytest.mark.asyncio
+async def test_turn_runtime_persists_private_provider_response_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    store = SQLiteSessionStore(tmp_path / "chat_history.db")
+    runtime = TurnRuntimeManager(store)
+    captured: dict[str, object] = {}
+    state = {"reasoning_content": "private reasoning"}
+
+    class FakeContextBuilder:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def build(self, **_kwargs):
+            return SimpleNamespace(
+                conversation_history=[],
+                conversation_summary="",
+                context_text="",
+                token_count=0,
+                budget=0,
+            )
+
+    class FakeOrchestrator:
+        async def handle(self, context):
+            captured["metadata"] = context.metadata
+            context.runtime.provider_response_state = state
+            yield StreamEvent(
+                type=StreamEventType.CONTENT,
+                source="chat",
+                stage="responding",
+                content="A direct answer",
+                metadata={"call_kind": "llm_final_response"},
+            )
+            yield StreamEvent(type=StreamEventType.DONE, source="chat")
+
+    async def title_after_done(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr("deeptutor.services.llm.config.get_llm_config", lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        "deeptutor.services.session.context_builder.ContextBuilder", FakeContextBuilder
+    )
+    monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
+    monkeypatch.setattr(runtime, "_maybe_generate_session_title", title_after_done)
+    monkeypatch.setattr(
+        "deeptutor.services.memory.get_memory_store",
+        lambda: SimpleNamespace(read_l3_concat=lambda: "", emit=_noop_async),
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.skill.get_skill_service",
+        _fake_skill_service,
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.persona.get_persona_service",
+        _fake_persona_service,
+    )
+
+    session, turn = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "content": "hello",
+            "session_id": None,
+            "capability": None,
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [],
+            "language": "en",
+            "config": {},
+        }
+    )
+    async for _event in runtime.subscribe_turn(turn["id"], after_seq=0):
+        pass
+
+    context_messages = await store.get_messages_for_context(session["id"])
+    assistant = context_messages[-1]
+    assert assistant["metadata"]["provider_response_state"] == state
+    detail = await store.get_session_with_messages(session["id"])
+    assert detail is not None
+    assert "provider_response_state" not in detail["messages"][-1]["metadata"]
+    metadata = captured["metadata"]
+    assert isinstance(metadata, dict)
+    assert "_provider_response_state" not in metadata
 
 
 @pytest.mark.asyncio
@@ -916,3 +1021,247 @@ async def test_turn_runtime_injects_memory_and_refreshes_after_completion(
     assert captured["memory_context"] == "## Memory\n## Preferences\n- Prefer concise answers."
     assert captured["conversation_history"] == []
     assert captured["conversation_context_text"] == "Recent chat summary"
+
+
+@pytest.mark.asyncio
+async def test_a_null_mode_on_the_wire_keeps_the_conversation_in_the_mode_it_was_in(
+    tmp_path, monkeypatch
+):
+    """The client writes ``mastery_session_mode`` on every turn and leaves it
+    null whenever it does not happen to hold the mode in memory — a reload, or
+    a session loaded from the server before its preference came back.
+
+    Reading that null as "the client said none" threw the mode away, so the
+    tutor was told it was studying while the learner watched the outline mode
+    highlighted above the transcript — and never switched, because it believed
+    it already had.
+    """
+    from deeptutor.capabilities.mastery.mode import enforced_mode
+
+    # The resolution the preparer performs, isolated: payload first, stored
+    # preference when the payload said nothing.
+    def resolve(payload_value, stored):
+        return enforced_mode(payload_value or stored)
+
+    assert resolve("outline", None) == "outline"
+    assert resolve(None, "outline") == "outline"
+    assert resolve("", "outline") == "outline"
+    # An explicit switch still wins over what was stored.
+    assert resolve("review", "outline") == "review"
+    # And a conversation that has never had one stays unrecorded.
+    assert resolve(None, None) is None
+
+
+@pytest.mark.asyncio
+async def test_prior_image_attachments_are_reattached_on_the_next_turn(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """An image attached in turn 1 must still reach a vision model on turn 2.
+
+    Multimodal blocks exist only on the upload turn and the source manifest
+    deliberately excludes images, so without re-attachment the model loses
+    the image entirely and asks the learner to resend it (#1438). The
+    executor re-attaches the conversation's earlier images (URL-only; the
+    multimodal layer resolves the bytes from the attachment store), and the
+    new message row must not duplicate them.
+    """
+    store = SQLiteSessionStore(tmp_path / "chat_history.db")
+    runtime = TurnRuntimeManager(store)
+    captured: list[list[SimpleNamespace]] = []
+
+    class FakeContextBuilder:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def build(self, **kwargs):
+            return SimpleNamespace(
+                conversation_history=[],
+                conversation_summary="",
+                context_text="",
+                token_count=0,
+                budget=0,
+            )
+
+    class FakeOrchestrator:
+        async def handle(self, context):
+            captured.append(list(context.attachments or []))
+            yield StreamEvent(
+                type=StreamEventType.CONTENT,
+                source="chat",
+                stage="responding",
+                content="ok",
+                metadata={"call_kind": "llm_final_response"},
+            )
+            yield StreamEvent(type=StreamEventType.DONE, source="chat")
+
+    monkeypatch.setattr("deeptutor.services.llm.config.get_llm_config", lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        "deeptutor.services.session.context_builder.ContextBuilder", FakeContextBuilder
+    )
+    monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
+    monkeypatch.setattr(
+        "deeptutor.book.context.build_book_context",
+        lambda *_args, **_kwargs: SimpleNamespace(text="", references=[], warnings=[]),
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.memory.get_memory_store",
+        lambda: SimpleNamespace(read_l3_concat=lambda: "", emit=_noop_async),
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.skill.get_skill_service",
+        _fake_skill_service,
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.persona.get_persona_service",
+        _fake_persona_service,
+    )
+
+    image_attachment = {
+        "type": "image",
+        "url": "/files/attachments/s1/img-1/shot.png",
+        "filename": "shot.png",
+        "mime_type": "image/png",
+        "base64": "",
+    }
+
+    session, turn1 = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "content": "what is in this picture?",
+            "session_id": None,
+            "capability": None,
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [image_attachment],
+            "language": "en",
+            "config": {},
+        }
+    )
+    async for _event in runtime.subscribe_turn(turn1["id"], after_seq=0):
+        pass
+
+    _session2, turn2 = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "content": "and the top left corner?",
+            "session_id": session["id"],
+            "capability": None,
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [],
+            "language": "en",
+            "config": {},
+        }
+    )
+    async for _event in runtime.subscribe_turn(turn2["id"], after_seq=0):
+        pass
+
+    assert [att.url for att in captured[0]] == [image_attachment["url"]]
+    # Turn 2 carries no payload attachment, yet the conversation's earlier
+    # image is re-attached for the model. (The payload contract has no
+    # attachment id, so the URL is the stable identity across turns.)
+    assert len(captured[1]) == 1
+    reattached = captured[1][0]
+    assert reattached.base64 == ""
+    assert reattached.url == image_attachment["url"]
+
+    # The turn-2 message row must not duplicate the attachment: the image
+    # belongs to turn 1's row and the re-attachment is per-turn context only.
+    rows = await store.get_messages(session["id"])
+    user_rows = [m for m in rows if m.get("role") == "user"]
+    assert user_rows[-1].get("attachments") == []
+
+
+@pytest.mark.asyncio
+async def test_reattaching_the_same_image_does_not_duplicate_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    store = SQLiteSessionStore(tmp_path / "chat_history.db")
+    runtime = TurnRuntimeManager(store)
+    captured: list[list[SimpleNamespace]] = []
+
+    class FakeContextBuilder:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        async def build(self, **kwargs):
+            return SimpleNamespace(
+                conversation_history=[],
+                conversation_summary="",
+                context_text="",
+                token_count=0,
+                budget=0,
+            )
+
+    class FakeOrchestrator:
+        async def handle(self, context):
+            captured.append(list(context.attachments or []))
+            yield StreamEvent(type=StreamEventType.DONE, source="chat")
+
+    monkeypatch.setattr("deeptutor.services.llm.config.get_llm_config", lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        "deeptutor.services.session.context_builder.ContextBuilder", FakeContextBuilder
+    )
+    monkeypatch.setattr("deeptutor.runtime.orchestrator.ChatOrchestrator", FakeOrchestrator)
+    monkeypatch.setattr(
+        "deeptutor.book.context.build_book_context",
+        lambda *_args, **_kwargs: SimpleNamespace(text="", references=[], warnings=[]),
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.memory.get_memory_store",
+        lambda: SimpleNamespace(read_l3_concat=lambda: "", emit=_noop_async),
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.skill.get_skill_service",
+        _fake_skill_service,
+    )
+    monkeypatch.setattr(
+        "deeptutor.services.persona.get_persona_service",
+        _fake_persona_service,
+    )
+
+    image_attachment = {
+        "type": "image",
+        "url": "/files/attachments/s1/img-1/shot.png",
+        "filename": "shot.png",
+        "mime_type": "image/png",
+        "base64": "",
+    }
+    session, turn1 = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "content": "look",
+            "session_id": None,
+            "capability": None,
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [image_attachment],
+            "language": "en",
+            "config": {},
+        }
+    )
+    async for _event in runtime.subscribe_turn(turn1["id"], after_seq=0):
+        pass
+
+    _session2, turn2 = await runtime.start_turn(
+        {
+            "type": "start_turn",
+            "content": "look again",
+            "session_id": session["id"],
+            "capability": None,
+            "tools": [],
+            "knowledge_bases": [],
+            "attachments": [image_attachment],
+            "language": "en",
+            "config": {},
+        }
+    )
+    async for _event in runtime.subscribe_turn(turn2["id"], after_seq=0):
+        pass
+
+    # The same file re-attached in turn 2 must not appear twice: the fresh
+    # record and the re-attached prior entry share one URL, and the URL is
+    # the dedupe key.
+    assert [att.url for att in captured[1]] == [image_attachment["url"]]
