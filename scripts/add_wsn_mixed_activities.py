@@ -773,7 +773,7 @@ def block_for(chapter: dict[str, Any], chapter_number: int, activity: Activity) 
                         {
                             "question_id": f"{base['id']}_q1",
                             "question": activity.question,
-                            "question_type": "single_choice",
+                            "question_type": "multiple_choice",
                             "options": dict(zip("ABCD", activity.options, strict=True)),
                             "correct_answer": activity.correct,
                             "explanation": activity.explanation,

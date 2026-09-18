@@ -126,6 +126,8 @@ def test_apply_distributes_exactly_five_activities_per_chapter(tmp_path: Path) -
             "sequence",
             "match",
         }
+        quiz = next(block for block in additions if block["type"] == "quiz")
+        assert quiz["payload"]["questions"][0]["question_type"] == "multiple_choice"
         original_sections = [
             block for block in before[page_path.name]["blocks"] if block["type"] == "section"
         ]
