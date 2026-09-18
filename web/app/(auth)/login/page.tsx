@@ -1,17 +1,29 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useCallback, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { login, fetchAuthStatus, checkIsFirstUser } from "@/lib/auth";
 import { BrandLockup } from "@/components/common/BrandLockup";
+import {
+  inheritLoginHash,
+  normalizeInternalReturnPath,
+} from "@/shared/auth/return-url";
 
 function LoginPageContent() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = normalizeInternalReturnPath(searchParams.get("next"));
+  const resolvedNext = useCallback(
+    () =>
+      inheritLoginHash(
+        next,
+        typeof window === "undefined" ? "" : window.location.hash,
+      ),
+    [next],
+  );
 
   const registered = searchParams.get("registered") === "1";
 
@@ -24,7 +36,7 @@ function LoginPageContent() {
     // If already authenticated, skip login
     fetchAuthStatus().then((status) => {
       if (status?.authenticated) {
-        router.replace(next);
+        router.replace(resolvedNext());
         return;
       }
       // No users registered yet — send straight to the registration page
@@ -32,7 +44,7 @@ function LoginPageContent() {
         if (first) router.replace("/register");
       });
     });
-  }, [router, next]);
+  }, [router, resolvedNext]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +54,7 @@ function LoginPageContent() {
     const result = await login(username, password);
 
     if (result.ok) {
-      router.replace(next);
+      router.replace(resolvedNext());
     } else {
       setError(result.error ?? t("Login failed"));
       setLoading(false);

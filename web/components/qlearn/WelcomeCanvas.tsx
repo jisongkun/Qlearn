@@ -89,8 +89,8 @@ export default function WelcomeCanvas({
   });
 
   return (
-    <div className="min-h-[760px] w-full flex-1 overflow-hidden px-4 py-3 sm:min-h-[820px] sm:px-6 lg:min-h-[460px] lg:px-8">
-      <div className="mx-auto grid min-h-full w-full max-w-[1120px] items-center gap-6 lg:grid-cols-12 lg:gap-8 xl:gap-10">
+    <div className="min-h-0 w-full flex-1 overflow-hidden px-4 py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto grid h-full min-h-0 w-full max-w-[1120px] items-start gap-6 lg:grid-cols-12 lg:gap-8 lg:pt-8 xl:gap-10">
         <section className="relative z-10 flex flex-col justify-center py-2 lg:col-span-6">
           <motion.p
             {...enter(0)}
@@ -113,7 +113,7 @@ export default function WelcomeCanvas({
             {t("Start with a question, a file, or where you left off.")}
           </motion.p>
 
-          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 [@media(max-height:500px)]:hidden">
             {STARTERS.map((starter, index) => {
               const Icon = starter.icon;
               return (
@@ -151,17 +151,11 @@ export default function WelcomeCanvas({
 
         <motion.section
           {...enter(0.12, 18)}
-          className="relative min-h-[340px] overflow-hidden sm:min-h-[390px] lg:col-span-6 lg:min-h-[420px]"
+          className="relative hidden min-h-[420px] overflow-hidden lg:col-span-6 lg:block xl:min-h-[460px]"
           aria-label={t("QLearn learning companion")}
         >
           <motion.div
-            className="absolute inset-[7%] flex items-center justify-center sm:inset-[5%]"
-            animate={reduceMotion ? undefined : { y: [-5, 6, -5] }}
-            transition={
-              reduceMotion
-                ? undefined
-                : { duration: 5.4, repeat: Infinity, ease: "easeInOut" }
-            }
+            className="absolute inset-[7%] flex items-center justify-center overflow-hidden rounded-[32px] border border-transparent bg-white sm:inset-[5%] dark:border-white/10 dark:shadow-[0_24px_80px_-36px_rgba(0,0,0,0.88)]"
           >
             <video
               className="h-full w-full select-none object-contain mix-blend-multiply"
@@ -185,23 +179,7 @@ export default function WelcomeCanvas({
                 {...enter(0.34 + index * 0.09, index === 1 ? -12 : 12)}
                 className={`absolute z-10 ${action.placement}`}
               >
-                <motion.div
-                  animate={
-                    reduceMotion
-                      ? undefined
-                      : { y: index % 2 === 0 ? [-3, 4, -3] : [4, -3, 4] }
-                  }
-                  transition={
-                    reduceMotion
-                      ? undefined
-                      : {
-                          duration: 4.8 + index * 0.45,
-                          delay: index * 0.2,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }
-                  }
-                >
+                <motion.div>
                   <Link
                     href={action.href}
                     className="group flex min-w-[164px] items-center gap-2.5 rounded-[18px] border border-white/80 bg-white/[0.78] px-3 py-2.5 text-left shadow-[0_16px_36px_-24px_rgba(15,23,42,0.55),inset_0_1px_0_rgba(255,255,255,0.94)] backdrop-blur-2xl transition-[background-color,border-color,box-shadow,transform] duration-[var(--q-motion-fast)] hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--primary)_35%,white)] hover:bg-white/[0.92] hover:shadow-[0_20px_44px_-24px_rgba(15,23,42,0.62),inset_0_1px_0_rgba(255,255,255,0.96)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] motion-reduce:transform-none"

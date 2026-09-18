@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from deeptutor.services.config.model_catalog import SERVICE_NAMES
 from deeptutor.services.config.runtime_settings import (
     RuntimeSettingsService,
     ensure_runtime_settings_files,
 )
 
 RUNTIME_ENV_KEYS = (
+    "DEEPTUTOR_VERSION_CHECK_ENABLED",
     "BACKEND_PORT",
     "FRONTEND_PORT",
     "NEXT_PUBLIC_API_BASE_EXTERNAL",
@@ -50,6 +52,7 @@ def test_runtime_settings_creates_defaults_without_reading_dotenv(tmp_path: Path
     service = RuntimeSettingsService(tmp_path / "settings")
 
     assert service.load_system(include_process_overrides=False)["backend_port"] == 8001
+    assert service.load_system(include_process_overrides=False)["version_check_enabled"] is True
     assert service.load_auth(include_process_overrides=False)["enabled"] is False
     assert service.load_integrations(include_process_overrides=False)["pocketbase_url"] == ""
 
@@ -57,10 +60,51 @@ def test_runtime_settings_creates_defaults_without_reading_dotenv(tmp_path: Path
     assert _read_json(service.path_for("auth"))["enabled"] is False
 
 
+def test_capability_routing_defaults_to_disabled(tmp_path) -> None:
+    service = RuntimeSettingsService(tmp_path / "settings")
+
+    assert service.load_system()["capability_routing_enabled"] is False
+
+
+def test_web_search_source_filter_defaults_to_safe_runtime_json(tmp_path) -> None:
+    service = RuntimeSettingsService(tmp_path / "settings")
+
+    assert service.load_system()["web_search_source_filtering"] == {
+        "enabled": True,
+        "blocked_domains": [],
+        "trusted_domains": [],
+        "content_filtering": True,
+        "use_educational_trusted_domains": False,
+        "use_moderation": False,
+    }
+
+    service.save_system(
+        {
+            "web_search_source_filtering": {
+                "enabled": True,
+                "blocked_domains": ["unsafe.example"],
+                "trusted_domains": [],
+                "content_filtering": False,
+                "use_educational_trusted_domains": True,
+                "use_moderation": True,
+            }
+        }
+    )
+    assert service.load_system()["web_search_source_filtering"] == {
+        "enabled": True,
+        "blocked_domains": ["unsafe.example"],
+        "trusted_domains": [],
+        "content_filtering": False,
+        "use_educational_trusted_domains": True,
+        "use_moderation": True,
+    }
+
+
 def test_runtime_process_env_is_explicit_override(tmp_path: Path) -> None:
     service = RuntimeSettingsService(
         tmp_path / "settings",
         process_env={
+            "DEEPTUTOR_VERSION_CHECK_ENABLED": "false",
             "BACKEND_PORT": "9100",
             "AUTH_ENABLED": "true",
             "POCKETBASE_PORT": "9090",
@@ -71,6 +115,7 @@ def test_runtime_process_env_is_explicit_override(tmp_path: Path) -> None:
     service.save_integrations({"pocketbase_port": 8090})
 
     assert service.load_system()["backend_port"] == 9100
+    assert service.load_system()["version_check_enabled"] is False
     assert service.load_auth()["enabled"] is True
     assert service.load_integrations()["pocketbase_port"] == 9090
     assert _read_json(service.path_for("system"))["backend_port"] == 8001
@@ -101,6 +146,7 @@ def test_render_environment_uses_json_backed_runtime_names(monkeypatch, tmp_path
     env = service.render_environment()
 
     assert env["BACKEND_PORT"] == "8010"
+    assert env["DEEPTUTOR_VERSION_CHECK_ENABLED"] == "true"
     assert env["FRONTEND_PORT"] == "3790"
     assert env["CORS_ORIGINS"] == "https://app.example"
     assert env["DISABLE_SSL_VERIFY"] == "true"
@@ -109,29 +155,49 @@ def test_render_environment_uses_json_backed_runtime_names(monkeypatch, tmp_path
     # Server-side proxy contract consumed by web/proxy.ts (the Next.js
     # middleware). DEEPTUTOR_AUTH_ENABLED gates the login redirect;
     # DEEPTUTOR_API_BASE_URL is where the frontend server reaches the backend
-    # (falls back to localhost:<backend_port> when no in-network base is
-    # configured). The external browser URL must not be used here because it
+    # (falls back to the IPv4 loopback on <backend_port> when no in-network base
+    # is configured). The external browser URL must not be used here because it
     # would loop back through the frontend reverse proxy.
     assert env["DEEPTUTOR_AUTH_ENABLED"] == "true"
-    assert env["DEEPTUTOR_API_BASE_URL"] == "http://localhost:8010"
+    assert env["DEEPTUTOR_API_BASE_URL"] == "http://127.0.0.1:8010"
     assert env["AUTH_TOKEN_EXPIRE_HOURS"] == "12"
     assert env["POCKETBASE_URL"] == "http://pocketbase:8090"
     assert "AUTH_SECRET" not in env
 
 
-def test_render_environment_prefers_internal_api_base(tmp_path: Path) -> None:
+def test_api_base_url_falls_back_to_ipv4_loopback(monkeypatch, tmp_path: Path) -> None:
+    """The server-side backend address must never be spelled "localhost".
+
+    On a dual-stack host that name resolves to ::1 first, while uvicorn binds
+    0.0.0.0 (IPv4 only) — so every /api/* rewrite issued by web/proxy.ts fails
+    to connect. The launcher was fixed in #784; this is the Docker entrypoint
+    path, which renders the same variable and must agree with it.
+    """
+    _clear_runtime_env(monkeypatch)
+    service = RuntimeSettingsService(tmp_path / "settings")
+    service.save_system({"backend_port": 8042})
+
+    env = service.render_environment()
+
+    assert env["DEEPTUTOR_API_BASE_URL"] == "http://127.0.0.1:8042"
+
+
+def test_api_base_url_prefers_a_configured_base_over_the_loopback(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The loopback is only a fallback: an explicit base still wins."""
+    _clear_runtime_env(monkeypatch)
     service = RuntimeSettingsService(tmp_path / "settings")
     service.save_system(
         {
-            "backend_port": 8010,
-            "next_public_api_base": "http://backend:9000",
-            "next_public_api_base_external": "https://app.example/api",
+            "backend_port": 8042,
+            "next_public_api_base": "http://backend.internal:9000",
         }
     )
 
     env = service.render_environment()
 
-    assert env["DEEPTUTOR_API_BASE_URL"] == "http://backend:9000"
+    assert env["DEEPTUTOR_API_BASE_URL"] == "http://backend.internal:9000"
 
 
 def test_system_settings_accept_public_api_base_alias_and_normalize_origins(
@@ -217,15 +283,7 @@ def test_startup_ensure_creates_missing_runtime_jsons_with_defaults(
     assert _read_json(settings_dir / "system.json")["backend_port"] == 8001
     assert _read_json(settings_dir / "auth.json")["enabled"] is False
     assert _read_json(settings_dir / "integrations.json")["pocketbase_url"] == ""
-    assert set(_read_json(settings_dir / "model_catalog.json")["services"]) == {
-        "llm",
-        "embedding",
-        "search",
-        "tts",
-        "stt",
-        "imagegen",
-        "videogen",
-    }
+    assert set(_read_json(settings_dir / "model_catalog.json")["services"]) == set(SERVICE_NAMES)
 
 
 def test_mineru_defaults_and_normalization(tmp_path: Path) -> None:
@@ -257,6 +315,9 @@ def test_mineru_defaults_and_normalization(tmp_path: Path) -> None:
     # Unknown mode falls back to local.
     assert service.save_mineru({"mode": "weird"})["mode"] == "local"
 
+    pooled = service.save_mineru({"mode": "cloud", "api_token": [" tok-a ", "tok-b"]})
+    assert pooled["api_token"] == ["tok-a", "tok-b"]
+
     # Model-download fields: source whitelisted, endpoint trimmed.
     saved = service.save_mineru(
         {
@@ -278,6 +339,110 @@ def test_mineru_local_cli_path_roundtrip(tmp_path: Path) -> None:
     assert service.load_mineru()["local_cli_path"] == "/envs/mineru/bin/mineru"
     # Default is empty (auto-detect from PATH).
     assert service.save_mineru({})["local_cli_path"] == ""
+
+
+def test_docling_defaults_and_normalization(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(tmp_path / "settings", process_env={})
+
+    full = service.load_document_parsing(include_process_overrides=False)
+    defaults = full["engines"]["docling"]
+    assert defaults["mode"] == "local"
+    assert defaults["api_base_url"] == "http://localhost:5001"
+    assert defaults["api_token"] == ""
+    assert defaults["do_ocr"] is False
+    assert defaults["do_table_structure"] is True
+    assert defaults["allow_local_model_download"] is False
+
+    saved = service.save_document_parsing(
+        {
+            "engines": {
+                "docling": {
+                    "mode": "REMOTE",  # case-insensitive
+                    "api_base_url": "http://192.168.2.162:5001/",  # trailing slash stripped
+                    "api_token": "  key-123  ",  # trimmed
+                    "do_ocr": "yes",  # coerced to bool
+                }
+            }
+        }
+    )["engines"]["docling"]
+    assert saved["mode"] == "remote"
+    assert saved["api_base_url"] == "http://192.168.2.162:5001"
+    assert saved["api_token"] == "key-123"
+    assert saved["do_ocr"] is True
+    # Unknown mode falls back to local; invalid URL falls back to the default.
+    assert (
+        service.save_document_parsing({"engines": {"docling": {"mode": "weird"}}})["engines"][
+            "docling"
+        ]["mode"]
+        == "local"
+    )
+    assert (
+        service.save_document_parsing({"engines": {"docling": {"api_base_url": ""}}})["engines"][
+            "docling"
+        ]["api_base_url"]
+        == "http://localhost:5001"
+    )
+
+
+def test_docling_process_env_override(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(
+        tmp_path / "settings",
+        process_env={
+            "DOCLING_MODE": "remote",
+            "DOCLING_API_BASE_URL": "http://docling:5001",
+            "DOCLING_API_TOKEN": "env-key",
+        },
+    )
+    service.save_document_parsing(
+        {"engines": {"docling": {"mode": "local", "api_token": "file-key"}}}
+    )
+
+    full = service.load_document_parsing()
+    docling = full["engines"]["docling"]
+    assert docling["mode"] == "remote"
+    assert docling["api_base_url"] == "http://docling:5001"
+    assert docling["api_token"] == "env-key"
+    # Persisted file keeps on-disk values, not the env overrides.
+    persisted = _read_json(service.path_for("document_parsing"))["engines"]["docling"]
+    assert persisted["mode"] == "local"
+    assert persisted["api_token"] == "file-key"
+
+    # Without env, the file value is returned.
+    plain = RuntimeSettingsService(tmp_path / "settings", process_env={})
+    assert plain.load_document_parsing()["engines"]["docling"]["api_token"] == "file-key"
+
+
+def test_tika_defaults_and_normalization(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(tmp_path / "settings", process_env={})
+
+    defaults = service.load_document_parsing(include_process_overrides=False)["engines"]["tika"]
+    assert defaults["server_url"] == "http://localhost:9998"
+
+    saved = service.save_document_parsing(
+        {"engines": {"tika": {"server_url": "http://192.168.2.162:9998/"}}}
+    )["engines"]["tika"]
+    assert saved["server_url"] == "http://192.168.2.162:9998"
+    assert (
+        service.save_document_parsing({"engines": {"tika": {"server_url": ""}}})["engines"]["tika"][
+            "server_url"
+        ]
+        == "http://localhost:9998"
+    )
+
+
+def test_tika_process_env_override(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(
+        tmp_path / "settings",
+        process_env={"TIKA_SERVER_URL": "http://tika:9998"},
+    )
+    service.save_document_parsing({"engines": {"tika": {"server_url": "http://localhost:9998"}}})
+
+    assert service.load_document_parsing()["engines"]["tika"]["server_url"] == "http://tika:9998"
+    persisted = _read_json(service.path_for("document_parsing"))["engines"]["tika"]
+    assert persisted["server_url"] == "http://localhost:9998"
+
+    plain = RuntimeSettingsService(tmp_path / "settings", process_env={})
+    assert plain.load_document_parsing()["engines"]["tika"]["server_url"] == "http://localhost:9998"
 
 
 def test_mineru_process_env_override(tmp_path: Path) -> None:
@@ -333,6 +498,8 @@ def test_document_parsing_v1_to_v2_migration(tmp_path: Path) -> None:
         "docling",
         "markitdown",
         "pymupdf4llm",
+        "liteparse",
+        "tika",
     }
     # Migration is persisted to the renamed file (v2, no top-level flat keys);
     # the legacy mineru.json is gone.

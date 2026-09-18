@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
+import { useCapabilityFilter } from "@/features/capabilities/useCapabilityCatalog";
 import {
   ArrowUpRight,
   ClipboardList,
-  GraduationCap,
+  Ear,
+  Github,
   History,
   NotebookPen,
   Plug,
@@ -22,7 +24,6 @@ import { listSessions } from "@/lib/session-api";
 import { listNotebooks, listNotebookEntries } from "@/lib/notebook-api";
 import { listPersonas } from "@/lib/personas-api";
 import { listSkills } from "@/lib/skills-api";
-import { fetchAllProgress } from "@/lib/learning-api";
 
 /**
  * Learning Space dashboard — the hub of `/space`.
@@ -43,7 +44,7 @@ type DashKey =
   | "skills"
   | "mcp"
   | "cli_apps"
-  | "mastery_path";
+  | "whisper";
 
 interface DashboardItem {
   key: DashKey;
@@ -51,11 +52,28 @@ interface DashboardItem {
   icon: LucideIcon;
   title: Lang;
   blurb: Lang;
-  /** Unit shown after the live count, e.g. "168 conversations". */
-  unit: Lang;
+  /**
+   * Unit shown after the live count, e.g. "168 conversations". Omitted
+   * together with ``load`` for a tile that has nothing to count.
+   */
+  unit?: Lang;
   /** Icon-tile accent — full class strings so Tailwind keeps them. */
   tile: string;
-  load: () => Promise<number>;
+  /**
+   * Live count for the tile. Optional: a surface with no countable rows (an
+   * ephemeral room, say) renders as title + blurb instead of showing a
+   * permanently-loading number.
+   */
+  load?: () => Promise<number>;
+  /** GitHub handle of the contributor this surface came from. */
+  credit?: string;
+  /**
+   * Turn capability this surface needs, when it is not served by this
+   * repository. The tile is withheld unless the backend registry actually
+   * holds the name, so a stock install never offers a room whose capability
+   * was never installed (#963).
+   */
+  requiresCapability?: string;
 }
 
 interface DashboardGroup {
@@ -82,7 +100,7 @@ const GROUPS: DashboardGroup[] = [
       },
       {
         key: "notebooks",
-        href: "/space/notebooks",
+        href: "/notebooks",
         icon: NotebookPen,
         title: { zh: "笔记本", en: "Notebooks" },
         blurb: {
@@ -111,21 +129,6 @@ const GROUPS: DashboardGroup[] = [
   {
     label: { zh: "个性化", en: "Personalization" },
     items: [
-      {
-        key: "mastery_path",
-        href: "/space/learning",
-        icon: GraduationCap,
-        title: { zh: "精通之路", en: "Mastery Path" },
-        blurb: {
-          zh: "掌握式学习：硬门槛与间隔复习。",
-          en: "Mastery-based learning: hard gate and spaced review.",
-        },
-        unit: { zh: "条路径", en: "paths" },
-        tile: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
-        load: async () =>
-          (await fetchAllProgress()).summaries.filter((s) => s.kp_count > 0)
-            .length,
-      },
       {
         key: "personas",
         href: "/space/personas",
@@ -187,9 +190,55 @@ const GROUPS: DashboardGroup[] = [
       },
     ],
   },
+  {
+    label: { zh: "更多项目", en: "More Projects" },
+    items: [
+      {
+        key: "whisper",
+        href: "/whisper",
+        icon: Ear,
+        title: { zh: "密语", en: "Whisper" },
+        blurb: {
+          zh: "双席位咨询练习房间：督导只对受训者耳语。",
+          en: "Dual-seat practice room — the supervisor whispers to the trainee only.",
+        },
+        tile: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
+        credit: "alanguan73",
+        // Served by the out-of-tree psych-academy plugin, not by this repo.
+        requiresCapability: "whisper_visitor",
+      },
+    ],
+  },
 ];
 
 const ALL_ITEMS = GROUPS.flatMap((g) => g.items);
+
+/**
+ * The groups to render, given what the backend can actually serve.
+ *
+ * `isAvailable` is null while the probe is in flight: gated tiles stay hidden
+ * until then, so a surface whose capability was never installed does not flash
+ * into view and out again — an ungated tile is never affected. A group left
+ * with no tiles is dropped along with its heading, or "More Projects" would
+ * render as a title over nothing (#963).
+ */
+export function visibleGroups(
+  groups: DashboardGroup[],
+  isAvailable: ((name: string) => boolean) | null,
+): DashboardGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          !item.requiresCapability ||
+          (isAvailable?.(item.requiresCapability) ?? false),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+export { GROUPS as DASHBOARD_GROUPS };
 
 export default function SpaceDashboard() {
   const { i18n } = useTranslation();
@@ -198,11 +247,18 @@ export default function SpaceDashboard() {
 
   const [counts, setCounts] = useState<Partial<Record<DashKey, number>>>({});
 
+  const capabilityAvailable = useCapabilityFilter();
+  const groups = useMemo(
+    () => visibleGroups(GROUPS, capabilityAvailable),
+    [capabilityAvailable],
+  );
+
   useEffect(() => {
     let cancelled = false;
     // Each tile loads independently so one slow/failed endpoint never blanks
     // the whole dashboard.
     for (const item of ALL_ITEMS) {
+      if (!item.load) continue;
       item
         .load()
         .then((n) => {
@@ -217,64 +273,27 @@ export default function SpaceDashboard() {
     };
   }, []);
 
-  const loadedValues = Object.values(counts).filter(
-    (value): value is number => typeof value === "number",
-  );
-  const totalItems = loadedValues.reduce((sum, value) => sum + value, 0);
-
   return (
-    <div className="pb-8">
-      <header className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
-        <div>
-          <p className="mb-3 text-[10px] font-semibold tracking-[0.16em] text-[var(--primary)]">
-            {tr({ zh: "全学 · 智能学习空间", en: "QLEARN · LEARNING SPACE" })}
-          </p>
-          <h1 className="max-w-3xl font-serif text-[clamp(2rem,5vw,2.75rem)] font-medium leading-[1.12] tracking-[-0.04em] text-[var(--foreground)]">
-            {tr({
-              zh: "你的学习，正在形成体系。",
-              en: "Your learning is becoming a system.",
-            })}
-          </h1>
-          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-[var(--muted-foreground)] sm:text-[14px]">
-            {tr({
-              zh: "从对话、资料和练习中积累可持续的理解与进度。所有入口继续使用原有数据和权限。",
-              en: "Turn conversations, materials, and practice into durable understanding and visible progress.",
-            })}
-          </p>
-        </div>
-
-        <div className="rounded-[18px] bg-[var(--foreground)] px-5 py-4 text-[var(--background)] shadow-[var(--q-shadow-card)]">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
-            {tr({ zh: "学习空间概览", en: "Workspace overview" })}
-          </p>
-          <div className="mt-3 flex items-end justify-between gap-5">
-            <div>
-              <p className="text-[28px] font-semibold leading-none tabular-nums">
-                {totalItems.toLocaleString()}
-              </p>
-              <p className="mt-1.5 text-[10px] opacity-65">
-                {tr({ zh: "项内容已整理", en: "items organized" })}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[18px] font-semibold leading-none tabular-nums">
-                {loadedValues.length}/{ALL_ITEMS.length}
-              </p>
-              <p className="mt-1.5 text-[10px] opacity-65">
-                {tr({ zh: "区域已同步", en: "areas synced" })}
-              </p>
-            </div>
-          </div>
-        </div>
+    <div>
+      <header className="mb-8">
+        <h1 className="font-serif text-[24px] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
+          {tr({ zh: "学习空间", en: "Learning Space" })}
+        </h1>
+        <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-[var(--muted-foreground)]">
+          {tr({
+            zh: "你的对话、智能体、笔记与练习，集中在一处 —— 从这里进入。",
+            en: "Your conversations, agents, notebooks, and practice in one place — enter from here.",
+          })}
+        </p>
       </header>
 
-      <div className="space-y-10">
-        {GROUPS.map((group) => (
+      <div className="space-y-9">
+        {groups.map((group) => (
           <section key={group.label.en}>
-            <h2 className="mb-4 px-0.5 font-serif text-[18px] font-medium tracking-[-0.02em] text-[var(--foreground)]">
+            <h2 className="mb-3 px-0.5 font-serif text-[16px] font-semibold tracking-tight text-[var(--foreground)]">
               {tr(group.label)}
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               {group.items.map((item) => (
                 <DashboardCard
                   key={item.key}
@@ -310,12 +329,12 @@ function DashboardCard({
   return (
     <Link
       href={item.href}
-      className="group relative flex min-h-[176px] flex-col rounded-[16px] border border-[var(--border)] bg-[var(--card)] p-4 shadow-[var(--q-shadow-quiet)] transition-[border-color,background-color,box-shadow,transform] duration-[var(--q-motion-base)] ease-[var(--q-ease-out)] hover:-translate-y-1 hover:border-[color-mix(in_srgb,var(--primary)_38%,var(--border))] hover:bg-[color-mix(in_srgb,var(--card)_96%,var(--primary))] hover:shadow-[var(--q-shadow-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] motion-reduce:transform-none"
+      className="group relative flex flex-col rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--foreground)]/20 hover:shadow-[0_6px_20px_-12px_rgba(0,0,0,0.25)]"
     >
       <div className="flex items-start gap-3">
         <span
           aria-hidden
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] transition-transform duration-[var(--q-motion-fast)] group-hover:scale-105 motion-reduce:transform-none ${item.tile}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${item.tile}`}
         >
           <Icon size={18} strokeWidth={1.7} />
         </span>
@@ -323,29 +342,37 @@ function DashboardCard({
           <h3 className="truncate text-[14.5px] font-medium leading-tight tracking-tight text-[var(--foreground)]">
             {tr(item.title)}
           </h3>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            {loaded ? (
-              <>
-                <span className="text-[20px] font-semibold leading-none tabular-nums text-[var(--foreground)]">
-                  {formatted}
-                </span>
-                <span className="text-[12px] text-[var(--muted-foreground)]">
-                  {tr(item.unit)}
-                </span>
-              </>
-            ) : (
-              <span className="my-[3px] h-3.5 w-12 animate-pulse rounded bg-[var(--muted)]" />
-            )}
-          </div>
+          {item.unit ? (
+            <div className="mt-1 flex items-baseline gap-1.5">
+              {loaded ? (
+                <>
+                  <span className="text-[20px] font-semibold leading-none tabular-nums text-[var(--foreground)]">
+                    {formatted}
+                  </span>
+                  <span className="text-[12px] text-[var(--muted-foreground)]">
+                    {tr(item.unit)}
+                  </span>
+                </>
+              ) : (
+                <span className="my-[3px] h-3.5 w-12 animate-pulse rounded bg-[var(--muted)]" />
+              )}
+            </div>
+          ) : null}
         </div>
         <ArrowUpRight
           size={16}
-          className="shrink-0 text-[var(--muted-foreground)]/40 transition-[color,transform] duration-[var(--q-motion-fast)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[var(--primary)] motion-reduce:transform-none"
+          className="shrink-0 text-[var(--muted-foreground)]/40 transition-colors group-hover:text-[var(--foreground)]"
         />
       </div>
-      <p className="mt-auto pt-5 text-[12.5px] leading-relaxed text-[var(--muted-foreground)]">
+      <p className="mt-3 text-[12.5px] leading-relaxed text-[var(--muted-foreground)]">
         {tr(item.blurb)}
       </p>
+      {item.credit ? (
+        <span className="mt-2.5 inline-flex items-center gap-1 self-start text-[11px] leading-none text-[var(--muted-foreground)] opacity-60">
+          <Github size={11} strokeWidth={1.8} aria-hidden />
+          {item.credit}
+        </span>
+      ) : null}
     </Link>
   );
 }
