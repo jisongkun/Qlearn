@@ -478,6 +478,23 @@ npm run build
 
 ### 8.7 上游升级记录
 
+#### DeepTutor v1.6.8 + post-release fixes（进行中）
+
+| 字段 | 记录 |
+| --- | --- |
+| 升级目标 | `upstream/main` / `897fce52f24bf22e6e50d8a3e4df532632a26322`（DeepTutor `v1.6.8` 后 3 个 mastery 修复） |
+| 升级前基线 | DeepTutor `v1.5.9` / `37c3db6df7e886aee4f61c97ec5e618b8ab379e8` |
+| 升级前 Qlearn HEAD | `66a354f831e22a56cfde1c95eda8df88ae71c0cf` |
+| 工作分支 | `sync/upstream-v1.6.8`，隔离工作树 `/data/home/shinji/Developer/Qlearn-sync-v1.6.8` |
+| dirty worktree 保护 | 权威开发目录 `/data/home/shinji/Developer/Qlearn-test` 保持在 `codex/qlearn-ui-redesign`，其 35 个未提交/未跟踪路径不做 stash、不覆盖；同步分支从已提交 HEAD 创建独立 worktree。待上游功能基线验证通过后，再按 QL ID 将 pending UI 适配到新架构。 |
+| 上游源码差异 | 687 个提交、6,728 个路径；其中 4,447 个删除主要包含上游清理的 `web/.next-deeptutor/` 产物。上游从 v1.6.3 起切换到 v2 前端运行时并移除 v1 chat transport/legacy surfaces。 |
+| 与 dirty worktree 重叠 | 8 个路径：旧首页 page、ChatComposer、SessionViewerPanel、FilePreviewDrawer、两个 Sidebar、英/中文 locale；旧首页 page 已被上游删除，必须在 v2 route composition 上重做而非保留旧文件。 |
+| 初始受影响 QL ID | `QL-GOV-001/002`、`QL-UI-001/002/003`、`QL-UX-001`、`QL-QA-001/002`、`QL-BUILD-001`、`QL-BE-001`、`QL-OPS-001/002/003` |
+| 行为不变量 | 先保留上游 v2 的 API/REST contract、turn runtime、WebSocket/stream、auth、session、KB、settings、reading、mastery 和错误状态，再重接 Qlearn 品牌、64px 单行顶部导航、New chat/Recents、1120px 首页网格、响应式与显式 Viewer 策略。不得恢复上游已删除的 v1 transport。 |
+| 计划验证 | `web`: lint、node tests、i18n check、build；后端受影响测试；Docker 镜像 build；auth gate、chat turn/stream/cancel/reconnect、session CRUD/recycle bin、KB upload/index/retrieval、顶部导航、Activity/Viewer、Math Animator、反向代理 API/WS smoke。 |
+| 部署计划 | 本轮先在隔离同步工作树完成合并与验证。未完成 QL reconciliation、全量门禁和测试环境回滚标签前，不更新 `/data/home/shinji/Developer/Qlearn-test`，不部署，不推送。 |
+| 当前状态 | `in_progress` |
+
 #### DeepTutor v1.5.9（已完成）
 
 | 字段 | 记录 |
