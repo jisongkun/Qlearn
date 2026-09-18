@@ -131,6 +131,8 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | `QL-BE-001` | active | 后端运行时 | `40a4e146`, `b97b2ded` | 高 | 防止外部 API 地址造成 Next.js 代理回环 |
 | `QL-BE-002` | active | BookEngine 内容校验 | `e1910f3e` | 中 | 清洗交互 HTML，并拒绝无控件/事件的伪交互和失败占位题 |
 | `QL-DATA-001` | active | 课程内容策展 | `e1910f3e` | 低 | 为无线传感网络理论教材安装 12 个确定性交互、修复图示与测验 |
+| `QL-BE-003` | pending | 原生交互提示词预览 | 待提交 | 中 | 复用 BookEngine 原生提示词构造，并提供登录态只读预览端点 |
+| `QL-DATA-002` | pending | 课程交互扩展 | 待提交 | 低 | 每章新增 5 个确定性交互，并按理论小节锚点分散插入 |
 
 ### 4.2 本地保护副本与临时 QA 证据
 
@@ -286,6 +288,34 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 - 测试部署：2026-09-18 已写入 `qlearntest.jisongkun.tech` 的指定书籍；迁移前页面备份位于 `/app/data/user/workspace/book/backups/book_bk_a86a9945fc-pre-curation-20260918T091056Z`。
 - 回滚：停止写入后，将迁移前备份的 `pages/*.json` 原子恢复；新增脚本本身不在应用启动时自动执行。
 - 长期保留下游的理由：具体课程内容属于用户教材资产，不适合提交 DeepTutor 上游；其中通用校验另由 `QL-BE-002` 承担。
+
+### QL-BE-003 — BookEngine 原生交互提示词预览
+
+- 状态：`pending`
+- 首次提交：待提交
+- 最近验证上游基线：DeepTutor `897fce52`
+- 路径：`deeptutor/book/blocks/interactive.py`、`deeptutor/api/routers/book.py` 及对应测试
+- 冲突风险：中；在上游 BookEngine 与 books router 中新增纯提示词构造器和登录态只读端点，不改变既有生成入口、事件或持久化 schema。
+- 目的：让确定性教材策展在不触发模型生成的情况下，调用平台真实的 interactive prompt；同一个纯函数继续供 `InteractiveGenerator` 使用，避免预览与实际生成的提示词漂移。
+- API：`GET /api/books/interactive-prompt?book_id=...&page_id=...&focus=...&interaction=...`，返回 `user_prompt` 与 `history_context`；不写数据、不调用模型。
+- 行为不变量：既有交互生成仍使用原提示词模板、同样的章节摘要与学习目标；无效书籍、页面或章节继续返回 404；端点沿用 books router 的认证边界。
+- 验证：纯函数定向测试、路由导入、登录态真实 API 调用和既有交互生成测试。
+- 回滚：删除新增 GET 路由与纯函数，并将 `InteractiveGenerator` 恢复为内联构造提示词；教材中已记录的提示词元数据不影响显示。
+- 上游化建议：高；提示词预览与生成复用属于通用 BookEngine authoring/QA 能力。
+
+### QL-DATA-002 — 无线传感网络理论交互扩展
+
+- 状态：`pending`
+- 首次提交：待提交
+- 最近验证上游基线：DeepTutor `897fce52`
+- 路径：`scripts/expand_wsn_interactives.py`、`tests/book/test_wsn_interactive_expansion.py`；运行数据仅作用于指定书籍 `bk_a86a9945fc`
+- 冲突风险：低；新增课程专用迁移脚本与测试，不修改通用存储格式。
+- 目的：在原有每章 1 个交互的基础上，为 12 个理论章节分别新增 5 个中文参数探索块，最终共 72 个；不加入实验指导。
+- 放置规则：每个新增块必须绑定一个唯一的小节标题，迁移时把多小节 section 无损拆为单小节块并紧随对应理论内容插入；正文、导语、总结、来源锚点和原有非 section 块顺序保持不变。任何锚点缺失、重复或章节数量不符均拒绝写入。
+- 数据边界：真实写入要求显式备份目录；确定性 ID 使重复运行保持 60 个扩展块；页面 JSON 原子替换；每块记录 `QL-BE-003` 生成的原生 prompt 与 history context。
+- 验证：60 个部件的控件/事件/自包含检查、12 章锚点唯一性、隔离副本迁移、正文逐项等值、原块 ID 顺序、72 个交互总数及浏览器逐章操作。
+- 回滚：将扩展前备份的 `pages/*.json` 原子恢复；脚本不会在应用启动时自动执行。
+- 长期保留下游的理由：课程交互规格与小节编排属于用户教材资产，不适合提交 DeepTutor 上游。
 
 ## 6. v2 UI 适配详情
 

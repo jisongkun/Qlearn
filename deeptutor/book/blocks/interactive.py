@@ -13,6 +13,7 @@ placeholder page into the book.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 from typing import Any
 
@@ -23,6 +24,56 @@ from ._prompts import get_book_prompt, load_book_prompts
 from .base import BlockContext, BlockGenerator, GenerationFailure
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class InteractivePrompt:
+    """Native prompt inputs used by the visualisation pipeline.
+
+    Keeping this construction pure lets authenticated authoring tools preview
+    the exact prompt before generation and lets deterministic curation jobs
+    record the same prompt alongside hand-authored HTML.
+    """
+
+    user_input: str
+    history_context: str
+
+
+def build_interactive_prompt(
+    *,
+    language: str,
+    chapter_title: str,
+    chapter_summary: str = "",
+    objectives: list[str] | None = None,
+    focus: str = "",
+    interaction: str = "interactive",
+) -> InteractivePrompt:
+    """Render the same native prompt consumed by ``InteractiveGenerator``."""
+
+    prompts = load_book_prompts("interactive", language)
+    history_lines: list[str] = []
+    if chapter_summary:
+        history_lines.append(
+            get_book_prompt(prompts, "context_summary")
+            .strip()
+            .format(chapter_summary=chapter_summary)
+        )
+    if objectives:
+        history_lines.append(get_book_prompt(prompts, "context_objectives").strip())
+        history_lines.extend(f"- {objective}" for objective in objectives)
+    focus_clause = (
+        get_book_prompt(prompts, "focus_clause").rstrip().format(focus=focus) if focus else ""
+    )
+    user_input = (
+        get_book_prompt(prompts, "brief")
+        .strip()
+        .format(
+            interaction=interaction,
+            chapter_title=chapter_title,
+            focus_clause=focus_clause,
+        )
+    )
+    return InteractivePrompt(user_input=user_input, history_context="\n".join(history_lines))
 
 
 class InteractiveGenerator(BlockGenerator):
@@ -37,33 +88,16 @@ class InteractiveGenerator(BlockGenerator):
         objectives = params.get("objectives") or ctx.chapter.learning_objectives
         focus = str(params.get("focus") or "")
         interaction = str(params.get("interaction") or "interactive")
-        prompts = load_book_prompts("interactive", ctx.language)
-
-        history_lines: list[str] = []
-        if chapter_summary:
-            history_lines.append(
-                get_book_prompt(prompts, "context_summary")
-                .strip()
-                .format(chapter_summary=chapter_summary)
-            )
-        if objectives:
-            history_lines.append(get_book_prompt(prompts, "context_objectives").strip())
-            for obj in objectives:
-                history_lines.append(f"- {obj}")
-        history_context = "\n".join(history_lines)
-
-        focus_clause = (
-            get_book_prompt(prompts, "focus_clause").rstrip().format(focus=focus) if focus else ""
+        prompt = build_interactive_prompt(
+            language=ctx.language,
+            chapter_title=str(chapter_title),
+            chapter_summary=str(chapter_summary or ""),
+            objectives=[str(objective) for objective in objectives],
+            focus=focus,
+            interaction=interaction,
         )
-        user_input = (
-            get_book_prompt(prompts, "brief")
-            .strip()
-            .format(
-                interaction=interaction,
-                chapter_title=chapter_title,
-                focus_clause=focus_clause,
-            )
-        )
+        user_input = prompt.user_input
+        history_context = prompt.history_context
 
         try:
             from deeptutor.agents.visualize.pipeline import VisualizePipeline
@@ -120,4 +154,4 @@ class InteractiveGenerator(BlockGenerator):
         )
 
 
-__all__ = ["InteractiveGenerator"]
+__all__ = ["InteractiveGenerator", "InteractivePrompt", "build_interactive_prompt"]

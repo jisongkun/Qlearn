@@ -565,6 +565,47 @@ async def block_types() -> dict[str, list[dict[str, str | bool]]]:
     }
 
 
+@router.get("/books/interactive-prompt")
+async def preview_interactive_prompt(
+    book_id: str,
+    page_id: str,
+    focus: str = "",
+    interaction: str = "interactive",
+) -> dict[str, str]:
+    """Preview the native interactive prompt without invoking a model.
+
+    This authenticated, read-only endpoint is for deterministic authoring and
+    QA workflows that want the platform's real prompt while supplying their
+    own reviewed HTML implementation.
+    """
+
+    resolved = _resolve_book_or_404(book_id)
+    engine = resolved.engine
+    book = engine.load_book(book_id)
+    spine = engine.load_spine(book_id)
+    page = engine.load_page(book_id, page_id)
+    if book is None or spine is None or page is None:
+        raise HTTPException(status_code=404, detail="Book page not found")
+    chapter = spine.chapter_by_id(page.chapter_id)
+    if chapter is None:
+        raise HTTPException(status_code=404, detail="Book chapter not found")
+
+    from deeptutor.book.blocks.interactive import build_interactive_prompt
+
+    prompt = build_interactive_prompt(
+        language=book.language,
+        chapter_title=chapter.title,
+        chapter_summary=chapter.summary,
+        objectives=list(chapter.learning_objectives),
+        focus=focus,
+        interaction=interaction,
+    )
+    return {
+        "user_prompt": prompt.user_input,
+        "history_context": prompt.history_context,
+    }
+
+
 @router.get("/books")
 async def list_books() -> dict[str, Any]:
     def _collect() -> list[dict[str, Any]]:
