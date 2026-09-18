@@ -209,7 +209,7 @@ export default function FilePreviewDrawer({
       // Full-screen sheet below the drawer breakpoint, matching
       // SessionViewerPanel — a 92vw overlay on a phone is an awkward
       // near-miss rather than a usable second column.
-      className={`fixed right-0 top-0 z-[30] flex h-dvh w-full flex-col border-l border-[var(--border)] bg-[var(--card)] transition-transform ease-out md:w-[min(560px,92vw)] ${
+      className={`fixed bottom-0 right-0 top-[65px] z-[30] flex w-full flex-col border-l border-[var(--border)] bg-[var(--card)] transition-transform ease-out md:w-[min(560px,92vw)] ${
         // shadow-2xl only while visible — parked off-screen at translate-x-full,
         // the blurred shadow still bleeds ~38px back onto the viewport's right
         // edge. Dropping it off-screen kills that stray sliver.

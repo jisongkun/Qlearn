@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import { SidebarShell } from "@/components/sidebar/SidebarShell";
+import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { RecycleBinSection } from "@/components/sidebar/RecycleBinSection";
 import { reconcileUnread } from "@/lib/session-unread";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -211,7 +211,7 @@ export default function WorkspaceSidebar() {
   );
 
   return (
-    <SidebarShell
+    <TopNavigation
       showSessions
       sessions={liveSessions}
       liveSessionIds={liveSessionIds}
@@ -226,13 +226,13 @@ export default function WorkspaceSidebar() {
       onDeleteSession={handleDeleteSession}
       onOrganizeSession={handleOrganizeSession}
       recycleBinSlot={<RecycleBinSection />}
-      footerSlot={(collapsed) => (
+      accountSlot={
         <>
-          <ProfileLink collapsed={collapsed} />
-          <AdminLink collapsed={collapsed} />
-          <LogoutButton collapsed={collapsed} />
+          <ProfileLink />
+          <AdminLink />
+          <LogoutButton />
         </>
-      )}
+      }
     />
   );
 }

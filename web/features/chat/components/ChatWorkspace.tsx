@@ -343,15 +343,10 @@ export default function ChatWorkspace({
   const [previewSource, setPreviewSource] = useState<FilePreviewSource | null>(
     null,
   );
-  // Right-side panels — Activity (floating cards) and Viewer (full sidebar
-  // with tabs for file previews + web pages). Each independently togglable
-  // and persisted across reloads.
-  //
-  // We initialise both to `false` so the SSR-rendered HTML matches the
-  // first client render exactly (no hydration mismatch). The persisted
-  // preference is then applied in a post-mount effect below.
   // Single right-side panel: the Activity/Viewer. Its home view is the
-  // session activity; files and web pages open as tabs alongside it.
+  // session activity; files and web pages open as tabs alongside it. It starts
+  // closed for every route visit and opens only from an explicit user action
+  // or a send-gate that needs capability configuration.
   const [viewerPanelOpen, setViewerPanelOpen] = useState(false);
   const [selectionTutorPrompt, setSelectionTutorPrompt] = useState<{
     text: string;
@@ -361,41 +356,17 @@ export default function ChatWorkspace({
     left: number;
     top: number;
   } | null>(null);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (browserStorage.readRaw("local", "dt:chat:viewer-panel") === "1") {
-      setViewerPanelOpen(true);
-    }
-  }, []);
   const setViewerOpen = useCallback((next: boolean) => {
     setViewerPanelOpen(next);
-    if (typeof window !== "undefined") {
-      browserStorage.writeRaw(
-        "local",
-        "dt:chat:viewer-panel",
-        next ? "1" : "0",
-      );
-    }
   }, []);
   const toggleViewerPanel = useCallback(() => {
-    setViewerPanelOpen((prev) => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        browserStorage.writeRaw(
-          "local",
-          "dt:chat:viewer-panel",
-          next ? "1" : "0",
-        );
-      }
-      return next;
-    });
+    setViewerPanelOpen((prev) => !prev);
   }, []);
   /**
    * Force the panel open on its Activity home. Used by the send-gate when the
    * user tries to send while the active capability still needs its config
    * confirmed — the config card lives on the Activity home, so we open the
-   * panel and switch to it. Also used by the capability-switch auto-open
-   * effect below.
+   * panel and switch to it.
    */
   const viewerPanelRef = useRef<SessionViewerPanelHandle | null>(null);
   const ensureActivityPanelOpen = useCallback(() => {
@@ -697,25 +668,6 @@ export default function ChatWorkspace({
     setCapabilityConfigConfirmed(true);
   }, []);
 
-  /**
-   * Auto-open the right-side Activity panel when the user switches into a
-   * capability that requires manual configuration (Quiz / Animator /
-   * Visualize / Research). We only fire on the transition from "doesn't
-   * need config" → "needs config" so we don't fight the user if they
-   * close the panel themselves while still in a config-needing mode.
-   *
-   * Tracking via a ref (instead of deps) avoids re-firing whenever the
-   * panel toggles — the open-state flip should be one-shot per cap
-   * transition.
-   */
-  const lastCapabilityNeedsConfigRef = useRef(capabilityNeedsConfig);
-  useEffect(() => {
-    const prev = lastCapabilityNeedsConfigRef.current;
-    lastCapabilityNeedsConfigRef.current = capabilityNeedsConfig;
-    if (!prev && capabilityNeedsConfig) {
-      ensureActivityPanelOpen();
-    }
-  }, [capabilityNeedsConfig, ensureActivityPanelOpen]);
   // Adopt UI preferences the assistant changed mid-conversation: the browser
   // otherwise keeps serving its own cached language/theme and the user is told
   // "done" while nothing visibly changes.
@@ -724,7 +676,7 @@ export default function ChatWorkspace({
   // A line the user might type next, written by the task model against the
   // conversation's own tail — general prediction, not a question to ask,
   // unlike the mastery/reading composers' hint. Empty conversations already
-  // get their own richer suggestions from StarterSuggestions below, so this
+  // get their own richer suggestions from WelcomeCanvas below, so this
   // only ever runs once there is something to continue. Cleared on session
   // switch so a prior chat's guess never lingers as this one's placeholder.
   const [askHint, setAskHint] = useState("");

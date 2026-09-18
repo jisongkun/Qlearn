@@ -6,9 +6,9 @@
 >
 > 上游：`HKUDS/DeepTutor`
 >
-> 最近一次仓库盘点：2026-08-05
+> 最近一次仓库盘点：2026-09-18
 >
-> 当前登记基线：DeepTutor `v1.5.9`，提交 `37c3db6df7e886aee4f61c97ec5e618b8ab379e8`
+> 当前同步候选基线：DeepTutor `v1.6.8` 后 3 个修复，提交 `897fce52f24bf22e6e50d8a3e4df532632a26322`
 
 本文是 Qlearn 作为 DeepTutor 长期下游 fork 的维护入口。它回答五个问题：
 
@@ -44,11 +44,11 @@ Qlearn 采用四层记录，避免把所有信息堆在一篇会迅速过期的�
 | --- | --- |
 | Qlearn origin | `git@github.com-jisongkun:jisongkun/Qlearn.git` |
 | DeepTutor upstream | `https://github.com/HKUDS/DeepTutor.git` |
-| Qlearn 当前开发分支 | `codex/qlearn-ui-redesign` |
-| 已合入上游基线 | DeepTutor `v1.5.9` / `37c3db6d` |
-| 基线后的 Qlearn 提交数 | 15（包含 v1.5.9 merge commit、治理与升级记录提交） |
-| 盘点时上游最新 main | `37c3db6df7e886aee4f61c97ec5e618b8ab379e8`，发布线为 `v1.5.9` |
-| 当前同步缺口 | 无（截至 2026-08-05 的 `upstream/main`） |
+| Qlearn 当前同步分支 | `sync/upstream-v1.6.8`（隔离工作树；权威开发目录仍保持 `codex/qlearn-ui-redesign`） |
+| 已合入上游基线 | DeepTutor `v1.6.8` 后 3 个修复 / `897fce52` |
+| 基线后的 Qlearn 提交数 | 19（完成本次 Qlearn v2 UI 适配提交后） |
+| 盘点时上游最新 main | `897fce52f24bf22e6e50d8a3e4df532632a26322`，最近发布 tag 为 `v1.6.8` |
+| 当前同步缺口 | 无（截至 2026-09-18 抓取的 `upstream/main`）；候选分支尚未并回权威开发目录、推送或部署 |
 
 “当前值”是盘点快照，不是永久常量。每次完成上游合并后必须更新本节的基线和同步缺口。
 
@@ -119,23 +119,23 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | `QL-GOV-001` | active | 治理 | `ef7241ba` | 低 | 建立 Qlearn/DeepTutor 兼容合同 |
 | `QL-GOV-002` | active | 治理门禁 | `e0b9ecad` | 低 | 强制所有 Agent 先读登记册，并通过本地审阅和验证保持同步 |
 | `QL-UI-001` | active | 品牌与首页 | `287eb9e5`, `72441076` | 中 | Qlearn 品牌、登录页、首页、欢迎区和基础视觉系统 |
+| `QL-UI-002` | active | 顶部导航 | v1.6.8 兼容提交 | 高 | 单行顶部导航替代左右主侧栏，同时复用上游导航清单与组织化会话能力 |
+| `QL-UI-003` | active | 首页对齐与响应式 | v1.6.8 兼容提交 | 中 | WelcomeCanvas 迁移到 v2 ChatWorkspace，统一 1120px 内容网格和低高度/移动端层级 |
+| `QL-UX-001` | active | 会话 Activity/Viewer | v1.6.8 兼容提交 | 中 | Viewer 默认关闭且不跨路由恢复；发送配置 gate、文件和网页预览仍可显式打开 |
 | `QL-QA-001` | active | UI 验收 | `16857118` | 低 | 记录首页视觉与交互验证证据 |
+| `QL-QA-002` | active | v2 UI 契约验收 | v1.6.8 兼容提交 | 低 | 覆盖顶部导航的标准路由、会话组织动作、Qlearn 品牌状态文案及前端全量门禁 |
 | `QL-OPS-001` | active | 测试部署 | `7cd0646a`, `3840e453` | 中 | 阿里云东京 Docker Compose 与 OpenResty 拓扑 |
 | `QL-OPS-003` | active | CI/CD 治理 | `6b3165e3` | 低 | 禁用 GitHub Actions；GitHub 仅用于源码协作，测试部署在 aliyuntokyo 本机执行 |
 | `QL-BUILD-001` | active | 生产镜像 | `b67975af` | 高 | 在生产镜像中加入 Math Animator 依赖 |
 | `QL-BE-001` | active | 后端运行时 | `40a4e146`, `b97b2ded` | 高 | 防止外部 API 地址造成 Next.js 代理回环 |
 
-### 4.2 工作区中尚未提交
+### 4.2 权威开发目录中尚未整理
 
-以下内容在 2026-08-05 盘点时仍是 dirty worktree，不能视为稳定发布清单：
+`/data/home/shinji/Developer/Qlearn-test` 仍保留升级前的 dirty UI/QA 文件作为保护副本；`QL-UI-002/003`、`QL-UX-001`、`QL-QA-002` 的 v2 等价实现已迁入同步候选分支并在 4.1 登记为 active，但在分支并回权威目录前仍未部署发布。当前仍需单独处理的环境项如下：
 
 | ID | 状态 | 范围 | 风险 | 当前内容 |
 | --- | --- | --- | --- | --- |
-| `QL-UI-002` | pending | 顶部导航 | 高 | 新增 `TopNavigation`，用顶部菜单替代左右主侧栏；保留会话、新对话、权限和账号操作 |
-| `QL-UI-003` | pending | 首页对齐与响应式 | 中 | 统一欢迎区、会话头和 composer 宽度；移动端隐藏次要机器人区域；处理低高度布局 |
-| `QL-UX-001` | pending | 会话 Activity/Viewer | 中 | 右侧活动面板不再跨页面自动恢复或因切换 capability 自动弹出，只在明确动作时打开 |
 | `QL-OPS-002` | pending | 测试域名 | 中 | 部署名、容器名、数据目录和 OpenResty 域名从 `qlearn` 调整为 `qlearn-test` / `qlearntest.jisongkun.tech` |
-| `QL-QA-002` | pending | 视觉验收 | 低 | 顶部导航、首页对齐、暗色及响应式截图和 `design-qa.md` 追加记录 |
 
 工作区还有 `.playwright-mcp/`、根目录多张审查截图和对比图。这些是临时证据，不应原样全部提交。正式提交前只保留有长期价值的精选证据，移动到稳定的 QA 文档目录；临时日志应保持未跟踪或加入忽略规则。
 
@@ -261,17 +261,18 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 - 升级处理：检查上游是否已有等价修复。若有，用上游测试替换本补丁；若没有，在合并后重跑专用测试。
 - 上游化建议：高。该问题不是 Qlearn 品牌差异，而是通用反向代理 bug，适合提交 DeepTutor PR。
 
-## 6. 待提交改动详情
+## 6. v2 UI 适配详情
 
 ### QL-UI-002 — 顶部导航替代左右主导航
 
-- 状态：`pending`
+- 状态：`active`（`sync/upstream-v1.6.8` 候选分支）
 - 新增路径：`web/components/navigation/TopNavigation.tsx`
 - 修改路径：`AppShell.tsx`、`UtilitySidebar.tsx`、`WorkspaceSidebar.tsx`、locale 文件及相关首页组件。
 - 产品目的：将主要菜单、新对话、最近会话和账号入口放进单行顶部导航，降低左右侧栏常驻占用。
 - 必须保持：
-  - 路由和 capability 权限判断；
+  - 上游 `PRIMARY_NAV` / `SECONDARY_NAV` 的现行路由和 capability 权限判断；
   - 新会话、会话选择、重命名、删除处理器；
+  - v1.6.8 的会话置顶、归档、分组、拖动排序、live 状态与回收站；
   - 管理员、个人资料、退出登录；
   - 移动端菜单、Escape、外部点击关闭和键盘可访问性。
 - 冲突风险：高。它替换上游共享 AppShell/Sidebar 组合，是未来导航改动的主要冲突点。
@@ -280,23 +281,26 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
   - 不删除上游 Sidebar 组件，除非确认没有其他路线引用；
   - 单独提交导航，不与首页尺寸、Activity 行为或部署改动混合；
   - 增加路由、会话操作和移动端契约测试。
+- v1.6.8 reconciliation：`TopNavigation` 直接消费上游导航清单，并在 Recents 中复用 `OrganizedSessionList`；首页入口更新为 `/chat`，知识库、书籍、笔记本等沿用 v2 canonical routes；`web/tests/sidebar-lazy-history.spec.tsx` 覆盖新会话、标准路由和置顶操作。
 
 ### QL-UI-003 — 首页宽度与响应式层级
 
-- 状态：`pending`
+- 状态：`active`（`sync/upstream-v1.6.8` 候选分支）
 - 目的：会话工具栏、欢迎内容和 composer 使用统一内容网格；小屏优先保证提问和学习入口可见。
 - 必须保持：starter 仍调用现有 composer；机器人仅是次要展示，不参与能力逻辑。
 - 冲突热点：首页 page、`WelcomeCanvas.tsx`、`ChatComposer.tsx`。
 - 整理要求：作为独立 UI 提交，不和顶部导航提交混合。
+- v1.6.8 reconciliation：上游已删除旧 `/home/[[...sessionId]]` 页面；Qlearn 不恢复 v1 route/transport，而是将 `WelcomeCanvas`、starter prefill/capability 选择和 1120px composer 网格组合进 `web/features/chat/components/ChatWorkspace.tsx`。
 
 ### QL-UX-001 — Activity/Viewer 显式打开策略
 
-- 状态：`pending`
+- 状态：`active`（`sync/upstream-v1.6.8` 候选分支）
 - 目的：右侧 Activity/Viewer 不再因 localStorage 或 capability 切换自行弹出并遮挡主工作区。
 - 行为变化：这是交互状态变化，不是纯样式变化。
 - 必须保持：当发送动作确实需要 capability 配置时，仍可显式打开 Activity；文件、本地文件和网页预览继续工作。
 - 冲突热点：首页 page、`SessionViewerPanel.tsx`、`FilePreviewDrawer.tsx`。
 - 整理要求：补充 viewer 初始关闭、显式打开、文件预览和 capability config gate 测试。
+- v1.6.8 reconciliation：删除 Viewer 的 localStorage 自动恢复和 capability 切换自动打开；保留 Activity 按钮、文件/网页/GeoGebra/quiz/subagent 显式 tab 打开，以及 composer send-gate 对 `ensureActivityPanelOpen()` 的调用。
 
 ### QL-OPS-002 — 测试环境命名与域名
 
@@ -478,7 +482,7 @@ npm run build
 
 ### 8.7 上游升级记录
 
-#### DeepTutor v1.6.8 + post-release fixes（进行中）
+#### DeepTutor v1.6.8 + post-release fixes（隔离候选已验证）
 
 | 字段 | 记录 |
 | --- | --- |
@@ -486,14 +490,21 @@ npm run build
 | 升级前基线 | DeepTutor `v1.5.9` / `37c3db6df7e886aee4f61c97ec5e618b8ab379e8` |
 | 升级前 Qlearn HEAD | `66a354f831e22a56cfde1c95eda8df88ae71c0cf` |
 | 工作分支 | `sync/upstream-v1.6.8`，隔离工作树 `/data/home/shinji/Developer/Qlearn-sync-v1.6.8` |
-| dirty worktree 保护 | 权威开发目录 `/data/home/shinji/Developer/Qlearn-test` 保持在 `codex/qlearn-ui-redesign`，其 35 个未提交/未跟踪路径不做 stash、不覆盖；同步分支从已提交 HEAD 创建独立 worktree。待上游功能基线验证通过后，再按 QL ID 将 pending UI 适配到新架构。 |
+| dirty worktree 保护 | 权威开发目录 `/data/home/shinji/Developer/Qlearn-test` 保持在 `codex/qlearn-ui-redesign`，其 35 个未提交/未跟踪路径不做 stash、不覆盖；同步分支从已提交 HEAD 创建独立 worktree，并已将 pending UI 按 QL ID 迁入 v2 架构。 |
 | 上游源码差异 | 687 个提交、6,728 个路径；其中 4,447 个删除主要包含上游清理的 `web/.next-deeptutor/` 产物。上游从 v1.6.3 起切换到 v2 前端运行时并移除 v1 chat transport/legacy surfaces。 |
 | 与 dirty worktree 重叠 | 8 个路径：旧首页 page、ChatComposer、SessionViewerPanel、FilePreviewDrawer、两个 Sidebar、英/中文 locale；旧首页 page 已被上游删除，必须在 v2 route composition 上重做而非保留旧文件。 |
 | 初始受影响 QL ID | `QL-GOV-001/002`、`QL-UI-001/002/003`、`QL-UX-001`、`QL-QA-001/002`、`QL-BUILD-001`、`QL-BE-001`、`QL-OPS-001/002/003` |
 | 行为不变量 | 先保留上游 v2 的 API/REST contract、turn runtime、WebSocket/stream、auth、session、KB、settings、reading、mastery 和错误状态，再重接 Qlearn 品牌、64px 单行顶部导航、New chat/Recents、1120px 首页网格、响应式与显式 Viewer 策略。不得恢复上游已删除的 v1 transport。 |
-| 计划验证 | `web`: lint、node tests、i18n check、build；后端受影响测试；Docker 镜像 build；auth gate、chat turn/stream/cancel/reconnect、session CRUD/recycle bin、KB upload/index/retrieval、顶部导航、Activity/Viewer、Math Animator、反向代理 API/WS smoke。 |
+| 合并结果 | merge commit `345e76e6d37e29c1f268ffd650ad726591d038a4`；保留上游历史，`upstream/main` 是候选分支 HEAD 的祖先。13 个冲突均以上游 v2 行为为基线，再重接 Qlearn 视觉层；未恢复已删除的 v1 chat transport。 |
+| QL reconciliation | `QL-GOV-001/002` 保留并更新基线；`QL-UI-001` 保留；`QL-UI-002/003`、`QL-UX-001` 在 v2 `ChatWorkspace`/导航壳上重做为 active；`QL-QA-001/002` 保留，其中登录后视觉 QA 待测试部署；`QL-BUILD-001` 由现行上游依赖模型取代；`QL-BE-001` 保留并适配上游 IPv4 localhost 修复；`QL-OPS-001/002/003` 不改部署状态。 |
+| 前端验证 | `npm run lint`：0 errors / 63 warnings；`npm run test:node`：1135/1135 passed；`npm run i18n:check`：locale parity 通过；`npm run build`：成功，37 个静态页面/路由；`npm run test:unit`：78/78 passed；`npm run architecture:check`、`npm run contracts:check`、`npm run perf:check` 全部通过。 |
+| 专项契约验证 | 顶部导航与 streaming targeted tests：5/5 passed；容器内直接运行 `RuntimeSettingsService` 代理目标契约：2/2 passed，确认外部 URL 不进入 server-side proxy，内部 base 优先。相对 upstream 的 transport boundary 差异仅为已登记的 `QL-BE-001`。 |
+| 环境限制 | 宿主 Python 环境缺少 `aiohttp`，现有 v1.5.9 镜像不含 pytest，因此未把宿主测试收集失败记为代码失败；npm 安装需一次性 `--allow-remote=all` 读取 lockfile 中的镜像 tarball，安装审计报告 15 个依赖漏洞。未因此修改全局 npm 配置或上游 lockfile。 |
+| 未覆盖的人工流程 | 尚未使用真实账号验证 auth、chat turn/cancel/reconnect、KB upload/index/retrieval、session CRUD/recycle bin、Activity/Viewer 全交互和 Math Animator 实际渲染；这些项目须在测试环境部署后完成。 |
 | 部署计划 | 本轮先在隔离同步工作树完成合并与验证。未完成 QL reconciliation、全量门禁和测试环境回滚标签前，不更新 `/data/home/shinji/Developer/Qlearn-test`，不部署，不推送。 |
-| 当前状态 | `in_progress` |
+| 部署结果 | 未构建新镜像、未重启容器、未推送。当前 `qlearn-test` 容器继续运行旧 `qlearn-test:aliyuntokyo` 镜像且保持 healthy；权威开发目录未改动。 |
+| 回滚说明 | 候选分支尚未进入权威目录或部署；删除隔离 worktree/分支即可回到升级前状态。未来测试部署前必须先为当前 image ID 创建不可变 rollback 标签。 |
+| 当前状态 | `validated_candidate`；待用户批准后再整合权威目录、构建测试镜像并执行登录后 smoke/E2E。 |
 
 #### DeepTutor v1.5.9（已完成）
 

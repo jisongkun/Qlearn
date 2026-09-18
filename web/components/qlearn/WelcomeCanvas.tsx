@@ -55,14 +55,14 @@ const COMPANION_ACTIONS = [
       "right-0 top-[12%] sm:right-[2%] lg:-right-1 lg:top-[15%]",
   },
   {
-    href: "/knowledge",
+    href: "/knowledge-bases",
     title: "Knowledge Center",
     description: "Learn from your saved materials.",
     icon: BookOpenText,
     placement: "left-0 top-[48%] sm:left-[2%] lg:-left-2",
   },
   {
-    href: "/space/notebooks",
+    href: "/notebooks",
     title: "My Notebooks",
     description: "Review your notebook records.",
     icon: NotebookTabs,

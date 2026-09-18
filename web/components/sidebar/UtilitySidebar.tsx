@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import { SidebarShell } from "@/components/sidebar/SidebarShell";
+import { TopNavigation } from "@/components/navigation/TopNavigation";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { AdminLink } from "@/components/auth/AdminLink";
 import { ProfileLink } from "@/components/auth/ProfileLink";
@@ -140,7 +140,7 @@ export default function UtilitySidebar() {
   );
 
   return (
-    <SidebarShell
+    <TopNavigation
       showSessions
       sessions={sessions}
       courses={courses}
@@ -153,13 +153,13 @@ export default function UtilitySidebar() {
       onRenameSession={handleRenameSession}
       onDeleteSession={handleDeleteSession}
       onOrganizeSession={handleOrganizeSession}
-      footerSlot={(collapsed) => (
+      accountSlot={
         <>
-          <ProfileLink collapsed={collapsed} />
-          <AdminLink collapsed={collapsed} />
-          <LogoutButton collapsed={collapsed} />
+          <ProfileLink />
+          <AdminLink />
+          <LogoutButton />
         </>
-      )}
+      }
     />
   );
 }

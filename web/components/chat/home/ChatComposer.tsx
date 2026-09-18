@@ -706,7 +706,11 @@ export default memo(function ChatComposer({
     <div
       ref={composerRef}
       data-qlearn-composer="true"
-      className={`relative z-20 mx-auto w-full shrink-0 px-4 pb-5 sm:px-6 ${hasMessages ? "max-w-[960px] pt-1" : "max-w-[816px]"}`}
+      className={`relative z-20 mx-auto w-full shrink-0 ${
+        hasMessages
+          ? "max-w-[960px] px-4 pb-5 pt-1 sm:px-6"
+          : "max-w-[1184px] px-4 pb-5 sm:px-6 lg:px-8"
+      }`}
       style={{
         transition: "max-width 650ms cubic-bezier(0.16, 1, 0.3, 1)",
       }}
