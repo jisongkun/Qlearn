@@ -129,8 +129,8 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | `QL-OPS-003` | active | CI/CD 治理 | `6b3165e3` | 低 | 禁用 GitHub Actions；GitHub 仅用于源码协作，测试部署在 aliyuntokyo 本机执行 |
 | `QL-BUILD-001` | active | 生产镜像 | `b67975af` | 高 | 在生产镜像中加入 Math Animator 依赖 |
 | `QL-BE-001` | active | 后端运行时 | `40a4e146`, `b97b2ded` | 高 | 防止外部 API 地址造成 Next.js 代理回环 |
-| `QL-BE-002` | pending | BookEngine 内容校验 | 本次提交 | 中 | 清洗交互 HTML，并拒绝无控件/事件的伪交互和失败占位题 |
-| `QL-DATA-001` | pending | 课程内容策展 | 本次提交 | 低 | 为无线传感网络理论教材安装 12 个确定性交互、修复图示与测验 |
+| `QL-BE-002` | active | BookEngine 内容校验 | `e1910f3e` | 中 | 清洗交互 HTML，并拒绝无控件/事件的伪交互和失败占位题 |
+| `QL-DATA-001` | active | 课程内容策展 | `e1910f3e` | 低 | 为无线传感网络理论教材安装 12 个确定性交互、修复图示与测验 |
 
 ### 4.2 本地保护副本与临时 QA 证据
 
@@ -262,27 +262,28 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 
 ### QL-BE-002 — BookEngine 交互与测验内容校验
 
-- 状态：`pending`
-- 首次提交：本项登记所在提交
+- 状态：`active`
+- 首次提交：`e1910f3e`
 - 最近验证上游基线：DeepTutor `897fce52`
 - 路径：`deeptutor/agents/visualize/utils.py`、`deeptutor/book/blocks/interactive.py`、`deeptutor/book/blocks/quiz.py` 及对应测试
 - 冲突风险：中；修改上游 BookEngine 生成后校验，但不改变 API、事件或持久化 schema。
 - 目的：防止带解释前缀/Markdown 围栏的 HTML 被原样送进 iframe，防止只有静态说明而没有控件或事件绑定的页面被标记为 interactive，并阻止 `[Generation failed]`、空答案和 `N/A` 进入成功测验。
 - 行为不变量：有效的自包含交互 HTML 与正常问题结构保持不变；失败仍沿用现有 `GenerationFailure`、重试和 partial-page 状态。
-- 验证：新增 HTML 规范化、静态页面拒绝、事件绑定识别和失败题过滤单元测试；测试部署后用真实书页操作全部交互。
+- 验证：2026-09-18 在受限资源构建的候选镜像中通过 15 项定向 pytest、Ruff 和候选镜像导入自检；部署后在真实登录会话中逐章操作 12 个交互并展开每章自测答案，所有控件均产生可见变化且无失败提示。测试镜像为 `sha256:ff828ae75b472ea7892fc34cfc767298ef032cf2a771bbeb2c317034f82a97f4`。
 - 回滚：恢复三个生成/校验文件及测试；已人工策展的数据块不依赖本补丁，仍可正常显示。
 - 上游化建议：高；这是通用 BookEngine 质量门禁，不依赖 Qlearn 品牌或课程。
 
 ### QL-DATA-001 — 无线传感网络理论教材人工策展
 
-- 状态：`pending`
-- 首次提交：本项登记所在提交
+- 状态：`active`
+- 首次提交：`e1910f3e`
 - 最近验证上游基线：DeepTutor `897fce52`
 - 路径：`scripts/curate_wsn_interactives.py`、`scripts/curate_wsn_book.py`；运行数据仅作用于指定书籍 `bk_a86a9945fc`
 - 冲突风险：低；新增迁移脚本，不修改通用存储格式。
 - 目的：在不加入实验指导的前提下，为 12 个理论章节各提供一个纯 HTML/CSS/JavaScript 的参数探索组件；替换 4 个空图示和 5 道失败占位题，并为结构偏薄的第 5–8 章补充自测与复习卡。
 - 数据边界：严格按书籍根目录、页面标题和既有块 ID 匹配；真实写入要求显式备份目录，页面 JSON 采用原子替换；不读取或复制认证信息、模型密钥与其他用户书籍。
-- 验证：脚本语法、12 个 HTML 自检标记、SVG XML/`viewBox`、测验字段完整性、迁移 dry-run、迁移后全书审计与浏览器逐章操作。
+- 验证：脚本语法、12 个 HTML 自检标记、SVG XML/`viewBox`、测验字段完整性、隔离副本迁移与迁移后全书审计均通过；测试站最终计数为 12 个 interactive、12 个 quiz、18 个 figure、9 组 flash cards，内容块错误和失败占位符均为 0。浏览器逐章实测 47 道自测题可展开，4 张修复图示可见。
+- 测试部署：2026-09-18 已写入 `qlearntest.jisongkun.tech` 的指定书籍；迁移前页面备份位于 `/app/data/user/workspace/book/backups/book_bk_a86a9945fc-pre-curation-20260918T091056Z`。
 - 回滚：停止写入后，将迁移前备份的 `pages/*.json` 原子恢复；新增脚本本身不在应用启动时自动执行。
 - 长期保留下游的理由：具体课程内容属于用户教材资产，不适合提交 DeepTutor 上游；其中通用校验另由 `QL-BE-002` 承担。
 
