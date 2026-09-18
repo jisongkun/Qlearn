@@ -44,11 +44,11 @@ Qlearn 采用四层记录，避免把所有信息堆在一篇会迅速过期的�
 | --- | --- |
 | Qlearn origin | `git@github.com-jisongkun:jisongkun/Qlearn.git` |
 | DeepTutor upstream | `https://github.com/HKUDS/DeepTutor.git` |
-| Qlearn 当前同步分支 | `sync/upstream-v1.6.8`（隔离工作树；权威开发目录仍保持 `codex/qlearn-ui-redesign`） |
+| Qlearn 当前同步分支 | `codex/qlearn-ui-redesign`（权威测试目录已快进到 v1.6.8 兼容提交；隔离分支 `sync/upstream-v1.6.8` 保留供审计） |
 | 已合入上游基线 | DeepTutor `v1.6.8` 后 3 个修复 / `897fce52` |
-| 基线后的 Qlearn 提交数 | 19（完成本次 Qlearn v2 UI 适配提交后） |
+| 基线后的 Qlearn 提交数 | 20（包含本次测试部署登记提交） |
 | 盘点时上游最新 main | `897fce52f24bf22e6e50d8a3e4df532632a26322`，最近发布 tag 为 `v1.6.8` |
-| 当前同步缺口 | 无（截至 2026-09-18 抓取的 `upstream/main`）；候选分支尚未并回权威开发目录、推送或部署 |
+| 当前同步缺口 | 无（截至 2026-09-18 部署前再次抓取的 `upstream/main`）；权威测试目录已整合并部署，尚未推送远端 |
 
 “当前值”是盘点快照，不是永久常量。每次完成上游合并后必须更新本节的基线和同步缺口。
 
@@ -119,23 +119,20 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | `QL-GOV-001` | active | 治理 | `ef7241ba` | 低 | 建立 Qlearn/DeepTutor 兼容合同 |
 | `QL-GOV-002` | active | 治理门禁 | `e0b9ecad` | 低 | 强制所有 Agent 先读登记册，并通过本地审阅和验证保持同步 |
 | `QL-UI-001` | active | 品牌与首页 | `287eb9e5`, `72441076` | 中 | Qlearn 品牌、登录页、首页、欢迎区和基础视觉系统 |
-| `QL-UI-002` | active | 顶部导航 | v1.6.8 兼容提交 | 高 | 单行顶部导航替代左右主侧栏，同时复用上游导航清单与组织化会话能力 |
-| `QL-UI-003` | active | 首页对齐与响应式 | v1.6.8 兼容提交 | 中 | WelcomeCanvas 迁移到 v2 ChatWorkspace，统一 1120px 内容网格和低高度/移动端层级 |
-| `QL-UX-001` | active | 会话 Activity/Viewer | v1.6.8 兼容提交 | 中 | Viewer 默认关闭且不跨路由恢复；发送配置 gate、文件和网页预览仍可显式打开 |
+| `QL-UI-002` | active | 顶部导航 | `aea5d8b6` | 高 | 单行顶部导航替代左右主侧栏，同时复用上游导航清单与组织化会话能力 |
+| `QL-UI-003` | active | 首页对齐与响应式 | `aea5d8b6` | 中 | WelcomeCanvas 迁移到 v2 ChatWorkspace，统一 1120px 内容网格和低高度/移动端层级 |
+| `QL-UX-001` | active | 会话 Activity/Viewer | `aea5d8b6` | 中 | Viewer 默认关闭且不跨路由恢复；发送配置 gate、文件和网页预览仍可显式打开 |
 | `QL-QA-001` | active | UI 验收 | `16857118` | 低 | 记录首页视觉与交互验证证据 |
-| `QL-QA-002` | active | v2 UI 契约验收 | v1.6.8 兼容提交 | 低 | 覆盖顶部导航的标准路由、会话组织动作、Qlearn 品牌状态文案及前端全量门禁 |
+| `QL-QA-002` | active | v2 UI 契约验收 | `aea5d8b6` | 低 | 覆盖顶部导航的标准路由、会话组织动作、Qlearn 品牌状态文案及前端全量门禁 |
 | `QL-OPS-001` | active | 测试部署 | `7cd0646a`, `3840e453` | 中 | 阿里云东京 Docker Compose 与 OpenResty 拓扑 |
+| `QL-OPS-002` | active | 测试域名与数据路径 | `66a354f8` | 中 | 使用 `qlearn-test` 容器、`qlearntest.jisongkun.tech` 和 `/data/opt/docker/qlearn-test/data` |
 | `QL-OPS-003` | active | CI/CD 治理 | `6b3165e3` | 低 | 禁用 GitHub Actions；GitHub 仅用于源码协作，测试部署在 aliyuntokyo 本机执行 |
 | `QL-BUILD-001` | active | 生产镜像 | `b67975af` | 高 | 在生产镜像中加入 Math Animator 依赖 |
 | `QL-BE-001` | active | 后端运行时 | `40a4e146`, `b97b2ded` | 高 | 防止外部 API 地址造成 Next.js 代理回环 |
 
-### 4.2 权威开发目录中尚未整理
+### 4.2 本地保护副本与临时 QA 证据
 
-`/data/home/shinji/Developer/Qlearn-test` 仍保留升级前的 dirty UI/QA 文件作为保护副本；`QL-UI-002/003`、`QL-UX-001`、`QL-QA-002` 的 v2 等价实现已迁入同步候选分支并在 4.1 登记为 active，但在分支并回权威目录前仍未部署发布。当前仍需单独处理的环境项如下：
-
-| ID | 状态 | 范围 | 风险 | 当前内容 |
-| --- | --- | --- | --- | --- |
-| `QL-OPS-002` | pending | 测试域名 | 中 | 部署名、容器名、数据目录和 OpenResty 域名从 `qlearn` 调整为 `qlearn-test` / `qlearntest.jisongkun.tech` |
+升级前的 35 个 dirty UI/QA 路径已完整保存为命名 stash `pre-v1.6.8-deploy-2026-09-18`（对象 `b6972407ddff3f339caaba09375669b129b02e97`）；其中行为代码已按 `QL-UI-002/003`、`QL-UX-001`、`QL-QA-002` 迁入 v2 等价实现，不应直接把旧 v1 文件重新应用到当前分支。
 
 工作区还有 `.playwright-mcp/`、根目录多张审查截图和对比图。这些是临时证据，不应原样全部提交。正式提交前只保留有长期价值的精选证据，移动到稳定的 QA 文档目录；临时日志应保持未跟踪或加入忽略规则。
 
@@ -482,29 +479,30 @@ npm run build
 
 ### 8.7 上游升级记录
 
-#### DeepTutor v1.6.8 + post-release fixes（隔离候选已验证）
+#### DeepTutor v1.6.8 + post-release fixes（测试环境已部署）
 
 | 字段 | 记录 |
 | --- | --- |
 | 升级目标 | `upstream/main` / `897fce52f24bf22e6e50d8a3e4df532632a26322`（DeepTutor `v1.6.8` 后 3 个 mastery 修复） |
 | 升级前基线 | DeepTutor `v1.5.9` / `37c3db6df7e886aee4f61c97ec5e618b8ab379e8` |
 | 升级前 Qlearn HEAD | `66a354f831e22a56cfde1c95eda8df88ae71c0cf` |
-| 工作分支 | `sync/upstream-v1.6.8`，隔离工作树 `/data/home/shinji/Developer/Qlearn-sync-v1.6.8` |
-| dirty worktree 保护 | 权威开发目录 `/data/home/shinji/Developer/Qlearn-test` 保持在 `codex/qlearn-ui-redesign`，其 35 个未提交/未跟踪路径不做 stash、不覆盖；同步分支从已提交 HEAD 创建独立 worktree，并已将 pending UI 按 QL ID 迁入 v2 架构。 |
+| 工作分支 | 在 `sync/upstream-v1.6.8` 隔离工作树完成验证后，将权威目录的 `codex/qlearn-ui-redesign` 快进到 `aea5d8b60d1ebce15d281a5cfe2683ff9a49febf`；隔离工作树继续保留供审计。 |
+| dirty worktree 保护 | 权威目录原 35 个未提交/未跟踪路径在整合前保存为命名 stash `pre-v1.6.8-deploy-2026-09-18`（`b6972407ddff3f339caaba09375669b129b02e97`）。旧 v1 行为代码不自动恢复，临时截图和 `design-qa.md` 仍可从该对象定向取回。 |
 | 上游源码差异 | 687 个提交、6,728 个路径；其中 4,447 个删除主要包含上游清理的 `web/.next-deeptutor/` 产物。上游从 v1.6.3 起切换到 v2 前端运行时并移除 v1 chat transport/legacy surfaces。 |
 | 与 dirty worktree 重叠 | 8 个路径：旧首页 page、ChatComposer、SessionViewerPanel、FilePreviewDrawer、两个 Sidebar、英/中文 locale；旧首页 page 已被上游删除，必须在 v2 route composition 上重做而非保留旧文件。 |
 | 初始受影响 QL ID | `QL-GOV-001/002`、`QL-UI-001/002/003`、`QL-UX-001`、`QL-QA-001/002`、`QL-BUILD-001`、`QL-BE-001`、`QL-OPS-001/002/003` |
 | 行为不变量 | 先保留上游 v2 的 API/REST contract、turn runtime、WebSocket/stream、auth、session、KB、settings、reading、mastery 和错误状态，再重接 Qlearn 品牌、64px 单行顶部导航、New chat/Recents、1120px 首页网格、响应式与显式 Viewer 策略。不得恢复上游已删除的 v1 transport。 |
 | 合并结果 | merge commit `345e76e6d37e29c1f268ffd650ad726591d038a4`；保留上游历史，`upstream/main` 是候选分支 HEAD 的祖先。13 个冲突均以上游 v2 行为为基线，再重接 Qlearn 视觉层；未恢复已删除的 v1 chat transport。 |
-| QL reconciliation | `QL-GOV-001/002` 保留并更新基线；`QL-UI-001` 保留；`QL-UI-002/003`、`QL-UX-001` 在 v2 `ChatWorkspace`/导航壳上重做为 active；`QL-QA-001/002` 保留，其中登录后视觉 QA 待测试部署；`QL-BUILD-001` 由现行上游依赖模型取代；`QL-BE-001` 保留并适配上游 IPv4 localhost 修复；`QL-OPS-001/002/003` 不改部署状态。 |
+| QL reconciliation | `QL-GOV-001/002` 保留并更新基线；`QL-UI-001` 保留；`QL-UI-002/003`、`QL-UX-001` 在 v2 `ChatWorkspace`/导航壳上重做为 active；`QL-QA-001/002` 保留，登录页与 auth gate 已完成部署后浏览器验证，登录后视觉 QA 待账号；`QL-BUILD-001` 由现行上游依赖模型取代；`QL-BE-001` 保留并适配上游 IPv4 localhost 修复；`QL-OPS-001/002/003` 保持现行拓扑。 |
 | 前端验证 | `npm run lint`：0 errors / 63 warnings；`npm run test:node`：1135/1135 passed；`npm run i18n:check`：locale parity 通过；`npm run build`：成功，37 个静态页面/路由；`npm run test:unit`：78/78 passed；`npm run architecture:check`、`npm run contracts:check`、`npm run perf:check` 全部通过。 |
 | 专项契约验证 | 顶部导航与 streaming targeted tests：5/5 passed；容器内直接运行 `RuntimeSettingsService` 代理目标契约：2/2 passed，确认外部 URL 不进入 server-side proxy，内部 base 优先。相对 upstream 的 transport boundary 差异仅为已登记的 `QL-BE-001`。 |
 | 环境限制 | 宿主 Python 环境缺少 `aiohttp`，现有 v1.5.9 镜像不含 pytest，因此未把宿主测试收集失败记为代码失败；npm 安装需一次性 `--allow-remote=all` 读取 lockfile 中的镜像 tarball，安装审计报告 15 个依赖漏洞。未因此修改全局 npm 配置或上游 lockfile。 |
-| 未覆盖的人工流程 | 尚未使用真实账号验证 auth、chat turn/cancel/reconnect、KB upload/index/retrieval、session CRUD/recycle bin、Activity/Viewer 全交互和 Math Animator 实际渲染；这些项目须在测试环境部署后完成。 |
-| 部署计划 | 本轮先在隔离同步工作树完成合并与验证。未完成 QL reconciliation、全量门禁和测试环境回滚标签前，不更新 `/data/home/shinji/Developer/Qlearn-test`，不部署，不推送。 |
-| 部署结果 | 未构建新镜像、未重启容器、未推送。当前 `qlearn-test` 容器继续运行旧 `qlearn-test:aliyuntokyo` 镜像且保持 healthy；权威开发目录未改动。 |
-| 回滚说明 | 候选分支尚未进入权威目录或部署；删除隔离 worktree/分支即可回到升级前状态。未来测试部署前必须先为当前 image ID 创建不可变 rollback 标签。 |
-| 当前状态 | `validated_candidate`；待用户批准后再整合权威目录、构建测试镜像并执行登录后 smoke/E2E。 |
+| 未覆盖的人工流程 | 当前没有测试账号凭据，因此尚未执行登录后的 chat turn/cancel/reconnect、KB upload/index/retrieval、session CRUD/recycle bin、Activity/Viewer 全交互和 Math Animator 实际渲染；自动化契约、构建、容器与未登录 auth gate 已通过。 |
+| 部署步骤 | 2026-09-18 在权威目录重新确认 `upstream/main` 未漂移并重跑全部前端门禁；为旧镜像创建不可变回滚标签后，从 `/data/home/shinji/Developer/Qlearn-test` 使用 `deploy/aliyuntokyo/docker-compose.yml` 构建并 `--force-recreate` 测试容器。未启用 GitHub Actions，未推送远端。 |
+| 部署结果 | 2026-09-18 14:40（Asia/Shanghai）部署 `qlearn-test:aliyuntokyo`，image ID `sha256:f1fe7d675b43e9b72348c3119973439cd6eb905f2d789f6418b0a3aa5e56af00`；容器 `healthy`，FastAPI 与 Next.js 进程均进入 RUNNING；继续仅监听 `127.0.0.1:13400`，数据盘保持 `/data/opt/docker/qlearn-test/data -> /app/data`。 |
+| 部署后 smoke | 本地和 `https://qlearntest.jisongkun.tech/` 均按 auth gate 跳转 `/login?next=%2F` 并返回 200；Playwright 验证 QLearn 标题、2 个登录输入框和登录按钮正常，无 page error。仅 `/favicon.ico` 返回 404，不影响应用功能。启动日志无 error/exception。 |
+| 回滚说明 | 旧 image ID `sha256:25bb72f29ecd6cd929d5b8cd466522bfc5969f700aa4aab49ec0d5a7077e8f32` 已固定为 `qlearn-test:rollback-v1.5.9-25bb72f2`；如发现回归，将该镜像重新标记为 `qlearn-test:aliyuntokyo` 并用同一 Compose 文件强制重建。源码可回到 `66a354f8`，dirty 证据可从 stash `b6972407` 恢复。 |
+| 当前状态 | `test_deployed_pending_authenticated_e2e`；测试部署成功且未发现未登录路径回归，仍需真实账号补齐登录后关键流程后才能标记升级完全完成。 |
 
 #### DeepTutor v1.5.9（已完成）
 
