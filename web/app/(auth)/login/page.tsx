@@ -1,16 +1,29 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useCallback, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import { login, fetchAuthStatus, checkIsFirstUser } from "@/lib/auth";
+import { BrandLockup } from "@/components/common/BrandLockup";
+import {
+  inheritLoginHash,
+  normalizeInternalReturnPath,
+} from "@/shared/auth/return-url";
 
 function LoginPageContent() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = normalizeInternalReturnPath(searchParams.get("next"));
+  const resolvedNext = useCallback(
+    () =>
+      inheritLoginHash(
+        next,
+        typeof window === "undefined" ? "" : window.location.hash,
+      ),
+    [next],
+  );
 
   const registered = searchParams.get("registered") === "1";
 
@@ -23,7 +36,7 @@ function LoginPageContent() {
     // If already authenticated, skip login
     fetchAuthStatus().then((status) => {
       if (status?.authenticated) {
-        router.replace(next);
+        router.replace(resolvedNext());
         return;
       }
       // No users registered yet — send straight to the registration page
@@ -31,7 +44,7 @@ function LoginPageContent() {
         if (first) router.replace("/register");
       });
     });
-  }, [router, next]);
+  }, [router, resolvedNext]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +54,7 @@ function LoginPageContent() {
     const result = await login(username, password);
 
     if (result.ok) {
-      router.replace(next);
+      router.replace(resolvedNext());
     } else {
       setError(result.error ?? t("Login failed"));
       setLoading(false);
@@ -52,9 +65,11 @@ function LoginPageContent() {
     <div className="w-full max-w-sm">
       {/* Logo / Title */}
       <div className="text-center mb-8">
-        <h1 className="font-serif text-2xl font-semibold text-[var(--foreground)] tracking-tight">
-          DeepTutor
-        </h1>
+        <BrandLockup
+          tagline={t("Intelligent Learning Space")}
+          markSize={32}
+          className="justify-center"
+        />
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">
           {t("Sign in to your account")}
         </p>
@@ -151,7 +166,7 @@ function LoginPageContent() {
       </p>
 
       <p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">
-        DeepTutor · Agent-Native Learning
+        {t("QLearn · Your intelligent learning space")}
       </p>
     </div>
   );

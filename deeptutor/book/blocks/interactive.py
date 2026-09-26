@@ -13,13 +13,67 @@ placeholder page into the book.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 from typing import Any
 
+from deeptutor.services.keypool import primary_api_key
+
 from ..models import BlockType, SourceAnchor
+from ._prompts import get_book_prompt, load_book_prompts
 from .base import BlockContext, BlockGenerator, GenerationFailure
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class InteractivePrompt:
+    """Native prompt inputs used by the visualisation pipeline.
+
+    Keeping this construction pure lets authenticated authoring tools preview
+    the exact prompt before generation and lets deterministic curation jobs
+    record the same prompt alongside hand-authored HTML.
+    """
+
+    user_input: str
+    history_context: str
+
+
+def build_interactive_prompt(
+    *,
+    language: str,
+    chapter_title: str,
+    chapter_summary: str = "",
+    objectives: list[str] | None = None,
+    focus: str = "",
+    interaction: str = "interactive",
+) -> InteractivePrompt:
+    """Render the same native prompt consumed by ``InteractiveGenerator``."""
+
+    prompts = load_book_prompts("interactive", language)
+    history_lines: list[str] = []
+    if chapter_summary:
+        history_lines.append(
+            get_book_prompt(prompts, "context_summary")
+            .strip()
+            .format(chapter_summary=chapter_summary)
+        )
+    if objectives:
+        history_lines.append(get_book_prompt(prompts, "context_objectives").strip())
+        history_lines.extend(f"- {objective}" for objective in objectives)
+    focus_clause = (
+        get_book_prompt(prompts, "focus_clause").rstrip().format(focus=focus) if focus else ""
+    )
+    user_input = (
+        get_book_prompt(prompts, "brief")
+        .strip()
+        .format(
+            interaction=interaction,
+            chapter_title=chapter_title,
+            focus_clause=focus_clause,
+        )
+    )
+    return InteractivePrompt(user_input=user_input, history_context="\n".join(history_lines))
 
 
 class InteractiveGenerator(BlockGenerator):
@@ -34,32 +88,29 @@ class InteractiveGenerator(BlockGenerator):
         objectives = params.get("objectives") or ctx.chapter.learning_objectives
         focus = str(params.get("focus") or "")
         interaction = str(params.get("interaction") or "interactive")
-
-        history_lines: list[str] = []
-        if chapter_summary:
-            history_lines.append(f"Chapter summary: {chapter_summary}")
-        if objectives:
-            history_lines.append("Learning objectives:")
-            for obj in objectives:
-                history_lines.append(f"- {obj}")
-        history_context = "\n".join(history_lines)
-
-        focus_clause = f" focusing on {focus}" if focus else ""
-        user_input = (
-            f"Build an {interaction} HTML page for the chapter "
-            f'"{chapter_title}"{focus_clause}. The page should let the learner '
-            "manipulate state, drag/click controls, or step through a guided "
-            "demo to internalise the concept."
+        prompt = build_interactive_prompt(
+            language=ctx.language,
+            chapter_title=str(chapter_title),
+            chapter_summary=str(chapter_summary or ""),
+            objectives=[str(objective) for objective in objectives],
+            focus=focus,
+            interaction=interaction,
         )
+        user_input = prompt.user_input
+        history_context = prompt.history_context
 
         try:
             from deeptutor.agents.visualize.pipeline import VisualizePipeline
-            from deeptutor.agents.visualize.utils import validate_visualization
+            from deeptutor.agents.visualize.utils import (
+                has_interactive_html_behavior,
+                normalize_html_document,
+                validate_visualization,
+            )
             from deeptutor.services.llm.config import get_llm_config
 
             llm_config = get_llm_config()
             pipeline = VisualizePipeline(
-                api_key=llm_config.api_key,
+                api_key=primary_api_key(llm_config.api_key),
                 base_url=llm_config.base_url,
                 api_version=llm_config.api_version,
                 language=ctx.language,
@@ -78,9 +129,15 @@ class InteractiveGenerator(BlockGenerator):
             logger.warning(f"InteractiveGenerator failed: {exc}", exc_info=True)
             raise GenerationFailure(f"interactive generation failed: {exc}") from exc
 
+        code = normalize_html_document(code)
         ok, validation_error = validate_visualization(code, "html")
         if not ok:
             raise GenerationFailure(f"interactive html failed validation: {validation_error}")
+        if not has_interactive_html_behavior(code):
+            raise GenerationFailure(
+                "interactive html has no usable controls or event wiring; "
+                "a static page cannot be stored as an interactive block"
+            )
 
         return (
             {
@@ -97,4 +154,4 @@ class InteractiveGenerator(BlockGenerator):
         )
 
 
-__all__ = ["InteractiveGenerator"]
+__all__ = ["InteractiveGenerator", "InteractivePrompt", "build_interactive_prompt"]

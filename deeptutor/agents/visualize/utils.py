@@ -57,6 +57,53 @@ def is_valid_html_document(html: str) -> bool:
     return "<html" in lowered or "<!doctype" in lowered or "<body" in lowered or "<div" in lowered
 
 
+def normalize_html_document(text: str) -> str:
+    """Extract the actual HTML document from a conversational model reply.
+
+    Models commonly preface a fenced document with one sentence.  The generic
+    HTML validator used to accept that reply because ``<html>`` appeared
+    somewhere inside it, then the frontend passed the prose and Markdown fence
+    to ``srcdoc`` unchanged.  Prefer the fenced HTML body and otherwise trim a
+    leading explanation before the first real document root.
+    """
+
+    source = (text or "").strip()
+    fenced = extract_code_block(source, "html")
+    if fenced != source:
+        return fenced
+    lowered = source.lower()
+    starts = [index for token in ("<!doctype", "<html", "<body") if (index := lowered.find(token)) >= 0]
+    if starts:
+        source = source[min(starts) :]
+    # A trailing fence after an otherwise complete document is model wrapper,
+    # not HTML.  Limit the trim to a suffix so backticks in inline examples are
+    # left alone.
+    source = re.sub(r"\s*```\s*$", "", source)
+    return source.strip()
+
+
+def has_interactive_html_behavior(source: str) -> bool:
+    """Return whether HTML contains both an affordance and executable wiring."""
+
+    text = source or ""
+    lower = text.lower()
+    has_control = bool(
+        re.search(r"<(?:button|input|select|textarea)\b", lower)
+        or ("<canvas" in lower and ("pointer" in lower or "mouse" in lower or "touch" in lower))
+    )
+    has_wiring = bool(
+        "<script" in lower
+        and (
+            "addeventlistener" in lower
+            or re.search(r"\bon(?:click|input|change|pointerdown|mousedown|touchstart)\s*=", lower)
+            or ".onclick" in lower
+            or ".oninput" in lower
+            or ".onchange" in lower
+        )
+    )
+    return has_control and has_wiring
+
+
 def build_fallback_html(*, title: str, summary: str = "", note: str = "") -> str:
     """Build a minimal, self-contained fallback HTML page.
 
@@ -186,6 +233,8 @@ __all__ = [
     "build_fallback_html",
     "extract_code_block",
     "extract_json_object",
+    "has_interactive_html_behavior",
     "is_valid_html_document",
+    "normalize_html_document",
     "validate_visualization",
 ]

@@ -69,7 +69,7 @@ deeptutor run <capability> <message> [options]
 
 | 选项 | 缩写 | 说明 |
 |------|------|------|
-| `--tool` | `-t` | 启用工具（可多次指定）：`rag`, `web_search`, `code_execution`, `reason`, `brainstorm`, `paper_search`, `geogebra_analysis`, `imagegen`, `videogen` |
+| `--tool` | `-t` | 启用工具（可多次指定）：`rag`, `web_search`, `exec`, `reason`, `brainstorm`, `paper_search`, `geogebra_analysis`, `imagegen`, `videogen` |
 | `--kb` | | 挂载知识库 |
 | `--language` | `-l` | 回复语言（默认 `en`） |
 | `--session` | | 继续已有会话 |
@@ -226,6 +226,7 @@ deeptutor config show
 ```bash
 deeptutor provider login openai-codex      # 执行 OpenAI Codex OAuth 登录
 deeptutor provider login github-copilot    # 校验现有 GitHub Copilot 认证是否可用
+deeptutor provider login codebuddy         # 校验 CodeBuddy SDK 登录；未登录时打开登录入口
 ```
 
 `openai-codex` 使用 DeepTutor 自己的独立 OAuth 流程登录。它不需要 `OPENAI_API_KEY`，也不会读取或同步本机 `~/.codex`；凭据保存在 `data/system/user-secrets/<owner>/private/openai-codex/`（沙箱访问不到的目录），与 Web 设置页共用。

@@ -47,7 +47,7 @@ def _model() -> CodexModel:
 def test_codex_upstream_contract_is_pinned() -> None:
     assert CODEX_OAUTH_CLIENT_ID == "app_EMoamEEZ73f0CkXaXp7hrann"
     assert CODEX_CALLBACK_PORTS == (1455, 1457)
-    assert CODEX_CLIENT_VERSION == "0.145.0"
+    assert CODEX_CLIENT_VERSION == "0.153.4"
     assert CODEX_MODELS_URL.endswith("/backend-api/codex/models")
     assert CODEX_DEFAULT_MODEL == "gpt-5.6-sol"
 
@@ -161,3 +161,34 @@ def test_catalog_snapshot_round_trip_preserves_tuples() -> None:
     assert restored == snapshot
     assert isinstance(restored.models, tuple)
     assert isinstance(restored.models[0].supported_reasoning_levels, tuple)
+
+
+def test_codex_model_round_trip_preserves_context_windows() -> None:
+    model = CodexModel(
+        slug="gpt-5.6-sol",
+        display_name="GPT-5.6-Sol",
+        priority=10,
+        visibility="list",
+        default_reasoning_level="medium",
+        supported_reasoning_levels=("low", "medium", "high"),
+        supports_reasoning_summary=True,
+        supports_parallel_tool_calls=True,
+        use_responses_lite=False,
+        context_window=272_000,
+        max_context_window=272_000,
+    )
+
+    restored = CodexModel.from_dict(model.to_dict())
+
+    assert restored == model
+
+
+def test_codex_model_accepts_cache_without_context_windows() -> None:
+    payload = _model().to_dict()
+    payload.pop("context_window")
+    payload.pop("max_context_window")
+
+    restored = CodexModel.from_dict(payload)
+
+    assert restored.context_window is None
+    assert restored.max_context_window is None

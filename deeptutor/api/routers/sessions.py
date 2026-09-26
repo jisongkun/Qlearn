@@ -4,13 +4,23 @@ Unified session history API.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
+from deeptutor.learning.storage import LearningStore
 from deeptutor.services.session import get_session_store, get_sqlite_session_store
+from deeptutor.services.session.organization import (
+    list_all_sessions_snapshot,
+    validate_parent_assignment,
+)
+from deeptutor.services.session.provider_response_state import (
+    redact_private_message_metadata as _redact_provider_state_metadata,
+)
+from deeptutor.services.session.search import MAX_SEARCH_QUERY_CHARS
 from deeptutor.services.storage.attachment_store import get_attachment_store
 
 logger = logging.getLogger(__name__)
@@ -30,6 +40,16 @@ class BranchSelectionRequest(BaseModel):
     """
 
     selected_branches: dict[str, int] = Field(default_factory=dict)
+
+
+class SessionOrganizationRequest(BaseModel):
+    """User-controlled organization metadata stored with the conversation."""
+
+    course_id: str | None = None
+    parent_session_id: str | None = None
+    session_kind: Literal["chat", "selection_tutor", "immersive_reading"] | None = None
+    pinned: bool | None = None
+    archived: bool | None = None
 
 
 class QuizResultItem(BaseModel):
@@ -87,6 +107,24 @@ async def list_sessions(
     return {"sessions": sessions}
 
 
+@router.get("/search")
+async def search_sessions(
+    q: str = Query(..., min_length=1, max_length=MAX_SEARCH_QUERY_CHARS),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    """Search titles and persisted user/assistant messages for a literal term."""
+    if not q.strip():
+        raise HTTPException(status_code=400, detail="Search query cannot be empty")
+    result = await get_session_store().search_sessions(q, limit=limit, offset=offset)
+    return {
+        "sessions": result["sessions"],
+        "total": result["total"],
+        "limit": limit,
+        "offset": offset,
+    }
+
+
 # Cap (in characters) for a single event payload returned to the UI. RAG
 # tools can attach whole KB documents to ``tool_result``/``observation``
 # events; the frontend TraceSurface only needs a preview, and the LLM context
@@ -95,6 +133,11 @@ async def list_sessions(
 MAX_EVENT_PAYLOAD = 1024 * 1024
 _TRUNCATION_NOTICE = "\n\n[... content truncated]"
 _TRUNCATABLE_EVENT_TYPES = ("tool_result", "observation")
+
+
+def _redact_private_message_metadata(messages: list[dict[str, Any]]) -> None:
+    """Remove provider-only state before session details cross the API."""
+    _redact_provider_state_metadata(messages)
 
 
 def _truncate_oversized_events(
@@ -130,14 +173,47 @@ def _truncate_oversized_events(
                 event["_truncated"] = True
 
 
+@router.get("/recycle-bin")
+async def list_recycle_bin(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    store = get_session_store()
+    sessions = await store.list_deleted_sessions(limit=limit, offset=offset)
+    return {"sessions": sessions}
+
+
 @router.get("/{session_id}")
 async def get_session(session_id: str):
     store = get_session_store()
     session = await store.get_session_with_messages(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    _redact_private_message_metadata(session.get("messages", []))
     _truncate_oversized_events(session.get("messages", []))
     return session
+
+
+@router.get("/{session_id}/messages/{message_id}/events")
+async def get_message_events(
+    session_id: str,
+    message_id: str,
+    after_seq: int = Query(default=0, ge=0),
+    limit: int = Query(default=500, ge=1, le=1000),
+):
+    store = get_session_store()
+    trace = await store.get_message_trace(session_id, message_id, after_seq, limit)
+    if trace is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return trace
+
+
+@router.get("/{session_id}/ask-hint")
+async def get_session_ask_hint(session_id: str) -> dict[str, Any]:
+    """One line the user is likely to type next, for the home composer placeholder."""
+    from deeptutor.services.chat_hints import get_ask_hint
+
+    return await get_ask_hint(session_id)
 
 
 @router.patch("/{session_id}")
@@ -150,17 +226,103 @@ async def rename_session(session_id: str, payload: SessionRenameRequest):
     return {"session": session}
 
 
+@router.patch("/{session_id}/organization")
+async def update_session_organization(session_id: str, payload: SessionOrganizationRequest):
+    store = get_session_store()
+    session = await store.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    updates: dict[str, Any] = {}
+    fields = payload.model_fields_set
+    if "course_id" in fields:
+        course_id = str(payload.course_id or "").strip()
+        if course_id:
+            from deeptutor.services.courses import CourseNotFoundError, get_course_service
+
+            try:
+                get_course_service().get(course_id)
+            except CourseNotFoundError as exc:
+                raise HTTPException(status_code=404, detail="Course not found") from exc
+        updates["course_id"] = course_id
+    if "parent_session_id" in fields:
+        parent_id = str(payload.parent_session_id or "").strip()
+        if parent_id == session_id:
+            raise HTTPException(status_code=400, detail="A session cannot be its own parent")
+        if parent_id:
+            try:
+                await validate_parent_assignment(
+                    store,
+                    session_id=session_id,
+                    parent_session_id=parent_id,
+                )
+            except LookupError as exc:
+                raise HTTPException(status_code=404, detail="Parent session not found") from exc
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        updates["parent_session_id"] = parent_id
+    if "session_kind" in fields:
+        updates["session_kind"] = payload.session_kind or "chat"
+    if "pinned" in fields:
+        updates["pinned"] = bool(payload.pinned)
+    if "archived" in fields:
+        updates["archived"] = bool(payload.archived)
+
+    if updates:
+        await store.update_session_preferences(session_id, updates)
+        cascade_updates = {key: updates[key] for key in ("course_id", "archived") if key in updates}
+        if cascade_updates:
+            # Selected-text tutor threads stay with their source conversation.
+            candidates = await list_all_sessions_snapshot(store)
+            for candidate in candidates:
+                prefs = candidate.get("preferences") or {}
+                if str(prefs.get("parent_session_id") or "") == session_id:
+                    await store.update_session_preferences(candidate["session_id"], cascade_updates)
+    refreshed = await store.get_session(session_id)
+    return {"session": refreshed}
+
+
 @router.delete("/{session_id}")
 async def delete_session(session_id: str):
     store = get_session_store()
-    deleted = await store.delete_session(session_id)
+    list_active_turns = getattr(store, "list_active_turns", None)
+    if callable(list_active_turns):
+        from deeptutor.services.session import get_turn_runtime_manager
+
+        runtime = get_turn_runtime_manager()
+        for turn in await list_active_turns(session_id):
+            await runtime.cancel_turn(turn["id"])
+    deleted = await store.soft_delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
+    return {"deleted": True, "session_id": session_id, "recycled": True}
+
+
+@router.post("/{session_id}/restore")
+async def restore_session(session_id: str):
+    store = get_session_store()
+    restored = await store.restore_session(session_id)
+    if not restored:
+        raise HTTPException(status_code=404, detail="Session not found in recycle bin")
+    refreshed = await store.get_session(session_id)
+    return {"restored": True, "session": refreshed}
+
+
+@router.delete("/{session_id}/purge")
+async def purge_session(session_id: str):
+    store = get_session_store()
+    purged = await store.hard_delete_session(session_id)
+    if not purged:
+        raise HTTPException(status_code=404, detail="Session not found in recycle bin")
+    try:
+        await asyncio.to_thread(LearningStore().detach_session, session_id)
+    except Exception:
+        logger.exception("failed to detach mastery paths for session %s", session_id)
     try:
         await get_attachment_store().delete_session(session_id)
     except Exception:
         logger.exception("failed to clean up attachments for session %s", session_id)
-    return {"deleted": True, "session_id": session_id}
+    return {"purged": True, "session_id": session_id}
 
 
 @router.put("/{session_id}/branch-selection")
