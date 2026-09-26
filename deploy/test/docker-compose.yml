@@ -6,7 +6,7 @@ services:
       context: ../..
       dockerfile: Dockerfile
       target: production
-    image: qlearn-test:aliyuntokyo
+    image: qlearn-test:test
     container_name: qlearn-test
     restart: unless-stopped
     stop_grace_period: 30s

@@ -1,5 +1,23 @@
 # Qlearn — DeepTutor-Compatible UI Fork
 
+This file is the single source of agent instructions for this repository, shared
+by Codex and Claude Code. `CLAUDE.md` only imports it (`@AGENTS.md`); do not add
+rules to `CLAUDE.md`.
+
+## Multi-Agent Collaboration (Codex + Claude Code)
+
+- Codex and Claude Code both work in this checkout (`aliyunphtion:/home/shinji/Developer/Qlearn-test`). Before editing, run `git status --short --branch`; treat uncommitted changes you did not make as another agent's in-progress work — do not revert, reformat, or "fix" them.
+- Keep commits scoped to your own task; stage files explicitly, no `git add -A` / `git commit -a` when others' changes are present.
+- If a check or deployment fails because of files another agent is mid-edit on, report the blocker and stop.
+- Rules live only in this `AGENTS.md`; `CLAUDE.md` only imports it. When deployment topology, CI location, environment source, or authorization rules change, update this file and the sjopswiki `projects/qlearn.md` page in the same work unit.
+
+## Agent Memory (Hindsight only)
+
+- Hindsight is the only agent memory, shared by Codex and Claude Code through the `coding-agent::<repo>` bank. Do not keep project knowledge in Claude Code auto-memory (`~/.claude/projects/*/memory`), repo `.claude/memory/`, or Codex memories.
+- Search this repo's Hindsight knowledge pages when starting a new task, when asked what was decided or why, or before redoing something that may already be settled. Treat results as leads: current files, tests, sjopswiki and live checks win; record corrections in Hindsight.
+- Durable, verified facts still go into tracked files (this file, `FORK-MAINTENANCE.md`, docs) or sjopswiki. Never put secrets into Hindsight or the repo; reference where they live (sjopswiki credentials page / Bitwarden).
+- Policy: `/home/shinji/Developer/sjopswiki/infra/agent-memory-policy.md`.
+
 ## Qlearn Product and Compatibility Contract
 
 Qlearn is a UI-focused fork of `HKUDS/DeepTutor`. Its product goal is to make
@@ -33,7 +51,9 @@ local review, and the required local/container checks.
 
 Qlearn currently has only a development/test deployment on `aliyunphtion` (moved from aliyuntokyo 2026-09-25) in
 `/home/shinji/Developer/Qlearn-test`. Build and restart it locally with
-`deploy/aliyuntokyo/docker-compose.yml`. There is no Qlearn production
+`deploy/test/docker-compose.yml` (renamed 2026-09-26 from `deploy/aliyuntokyo/`,
+same explicit `qlearn-test` compose project name and bind-mount volumes; no
+identity change). There is no Qlearn production
 deployment today. If production is later authorized, publish source from the
 authoritative `*-test` checkout to `hw135` via SSH/rsync and run Docker Compose
 there; do not introduce GitHub Actions deployment. A Git push never authorizes
