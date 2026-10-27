@@ -49,15 +49,9 @@ in the fork only to reduce upstream merge churn; their presence is not
 authorization to run them. Enforce the registry contract through this file,
 local review, and the required local/container checks.
 
-Qlearn currently has only a development/test deployment on `aliyunphtion` (moved from aliyuntokyo 2026-09-25) in
-`/home/shinji/Developer/Qlearn-test`. Build and restart it locally with
-`deploy/test/docker-compose.yml` (renamed 2026-09-26 from `deploy/aliyuntokyo/`,
-same explicit `qlearn-test` compose project name and bind-mount volumes; no
-identity change). There is no Qlearn production
-deployment today. If production is later authorized, publish source from the
-authoritative `*-test` checkout to `hw135` via SSH/rsync and run Docker Compose
-there; do not introduce GitHub Actions deployment. A Git push never authorizes
-or performs deployment.
+Qlearn has one test runtime on `omni-test-guiyuessay-01` (`ops@8.140.41.181:22022`), handed over on 2026-10-28. Its runtime definition is `/home/ops/Runtime/qlearn-test/app-final.compose.json`; `/app/data` is the complete bind at `/home/ops/Runtime/omnilearning/data/opt/docker/qlearn-test/data`. The frontend and backend are both enabled on the new host. There is no production deployment.
+
+Development source, Docker-only checks and isolated builds stay on `aliyunphtion:/home/shinji/Developer/Qlearn-test`. `deploy/test/docker-compose.yml` describes the retired local runtime: do not run its `up` command on aliyunphtion or restart the stopped old `qlearn-test`. Old data stays for recovery, not as a second writer. Publish an explicitly authorized runtime change via the documented SSH/transfer route to the current test host, preserving its full data and secrets. Do not infer future production authority from the old hw135 convention. GitHub Actions stays disabled; a Git push never authorizes deployment. After the new runtime has written, rollback requires freezing it and auditing/synchronizing its latest data; never resume an old snapshot directly.
 
 This contract is mandatory for all agents and contributors unless the user
 explicitly authorizes a functional or compatibility-breaking change.

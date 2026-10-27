@@ -126,7 +126,7 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 | `QL-QA-002` | active | v2 UI 契约验收 | `aea5d8b6` | 低 | 覆盖顶部导航的标准路由、会话组织动作、Qlearn 品牌状态文案及前端全量门禁 |
 | `QL-OPS-001` | active | 测试部署 | `7cd0646a`, `3840e453` | 中 | 阿里云东京 Docker Compose 与 OpenResty 拓扑 |
 | `QL-OPS-002` | active | 测试域名与数据路径 | `66a354f8` | 中 | 使用 `qlearn-test` 容器、`qlearntest.jisongkun.tech` 和 `/data/opt/docker/qlearn-test/data` |
-| `QL-OPS-003` | active | CI/CD 治理 | `6b3165e3` | 低 | 禁用 GitHub Actions；GitHub 仅用于源码协作，测试部署在 aliyunphtion 本机执行 |
+| `QL-OPS-003` | active | CI/CD 治理 | `6b3165e3` | 低 | 禁用 GitHub Actions；GitHub 仅用于源码协作，开发检查／构建在aliyunphtion，测试运行发布到新测试机（2026-10-28交接） |
 | `QL-BUILD-001` | active | 生产镜像 | `b67975af` | 高 | 在生产镜像中加入 Math Animator 依赖 |
 | `QL-BE-001` | active | 后端运行时 | `40a4e146`, `b97b2ded` | 高 | 防止外部 API 地址造成 Next.js 代理回环 |
 | `QL-BE-002` | active | BookEngine 内容校验 | `e1910f3e` | 中 | 清洗交互 HTML，并拒绝无控件/事件的伪交互和失败占位题 |
@@ -229,7 +229,7 @@ ID 不因文件移动或重构而变化。改动被上游吸收后，将状态�
 - 主要路径：`AGENTS.md`、本文；GitHub 仓库 Actions 权限属于外部配置
 - 目的：GitHub 只承担源码协作，不运行 Qlearn CI、release、镜像发布或部署，避免 PR push、上游 release workflow 或误操作触发远端执行。
 - 当前配置：2026-08-06 已通过 GitHub repository Actions permissions 将 `jisongkun/Qlearn` 设置为 `enabled=false`；删除 Qlearn 自建的 `fork-registry.yml`，上游 `tests.yml`、`pypi-release.yml` 和 `docker-release.yml` 仅为减少 merge churn 而保留，禁止启用或 dispatch。
-- 部署边界：Qlearn 当前只有 `aliyunphtion:/home/shinji/Developer/Qlearn-test`（`deploy/test/`）测试环境，使用本机 Docker Compose；当前没有生产环境。未来生产若获授权，遵循 aliyunphtion 权威 `*-test` checkout 经 SSH/rsync 发布到 `hw135`，不得使用 GitHub Actions。目录于 2026-09-26 从 aliyuntokyo 迁移并重命名而来，Compose project 名固定为 `qlearn-test`，容器身份与数据卷未受影响。
+- 部署边界：2026-10-28测试运行权威已迁到`omni-test-guiyuessay-01`，开发源码／Docker检查／隔离构建仍在`aliyunphtion:/home/shinji/Developer/Qlearn-test`。旧本机运行容器stopped、restart=no；不可再执行旧deploy/test的up来启用第二份。新机使用Runtime/qlearn-test/app-final.compose.json和完整data bind，正式发布须走已记录SSH／传输路由；目前无生产部署，未来主机需另行明确，不自动沿用旧hw135。GitHub Actions保持禁用。
 - 验证：检查 GitHub Actions permissions 为 disabled；确认没有 queued/in_progress run；本地测试和部署按本文及 `sjopswiki` 执行。
 - 上游升级：上游 workflow 文件可随 merge 更新但不得启用；不要为禁用 Actions 而反复删除上游文件，从而制造无意义冲突。
 - 回滚：只有用户明确改变 CI/CD 策略后才能重新启用 Actions，并需先更新 `AGENTS.md`、本文与 `sjopswiki`。
@@ -708,3 +708,10 @@ fix(runtime): avoid external proxy loop [QL-BE-001]
 6. 评估将 `QL-BE-001` 作为通用修复贡献上游；
 7. 若修复 Codex OAuth/模型兼容层，先建立新的 `QL-BE-*` 登记项和 ADR，不得混入 UI 或上游同步提交；
 8. 每次部署前先给当前镜像加不可变 rollback 标签，并记录“部署提交 SHA”，避免把工作区状态误认为线上状态。
+
+
+## 2026-10-28 运行主机交接补记（QL-OPS-001／002／003）
+
+开发代码和产品版本保留；只将实际运行镜像、完整数据和必要配置交接到北京全学教育有限公司的新测试机8.140.41.181。旧源正常退出码0，完整冷态311文件／184541012字节，十个SQLite的integrity、结构、表行数及全部文件SHA256／UID/GID／权限均验证；包含WAL／SHM，未把缓存文件或真实教材删除。新机恢复原backend＋frontend配置、healthy，原应用镜像不变，无构建／升级。旧源stopped／restart=no，旧入口13400暂通过既有SSH连接转到新机，DNS尚待sjopswiki统一切换。新旧入口307登录跳转／登录页200、原生auth status200及匿名profile401通过；旧不存在的/api/v1/settings仍404，不改路由掩盖差异。完整登录后聊天／模型调用未在本次迁移重跑。
+
+新机Runtime/qlearn-test/app-final.compose.json管理唯一运行实例，/app/data挂载Runtime/omnilearning/data/opt/docker/qlearn-test/data。开发仍在aliyunphtion当前checkout，既有源码分支保留，不因迁移合并／升级上游。回退先停止新写入并审计、反向同步最新完整数据，不能直接启动旧快照；原数据和私有备份保留。证据、域名切换及最终验收以sjopswiki/projects/qlearn.md与omnilearning迁移runbook为准。没有新增API、协议、持久化格式或后端服务；上游兼容实现未改。
