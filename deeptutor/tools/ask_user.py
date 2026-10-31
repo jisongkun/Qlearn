@@ -23,6 +23,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import json_repair
+
+from deeptutor.utils.text_display import decode_escaped_unicode_for_display
+
 MAX_QUESTIONS = 4
 MAX_OPTIONS = 8
 MAX_OPTION_CHARS = 120  # option label
@@ -123,7 +127,12 @@ def build_ask_user_payload(
     normalised: list[AskUserQuestion] = []
     used_ids: set[str] = set()
     for idx, raw in enumerate(raw_questions):
-        q_or_err = _build_question(raw, idx, used_ids)
+        # Same guard the preview uses. A provider that truncates its tool
+        # arguments mid-key leaves ``json_repair`` closing the fragment as a
+        # *list* (``["labe"]``), and the dispatched call rendered that as a
+        # real, pickable ``['labe']`` choice — an answer the model never
+        # wrote. Dropping it costs an option the payload never finished.
+        q_or_err = _build_question(_drop_half_written_options(raw), idx, used_ids)
         if isinstance(q_or_err, str):
             return None, q_or_err
         normalised.append(q_or_err)
@@ -147,6 +156,84 @@ def _coerce_questions(questions: Any, question: Any, options: Any) -> list[Any] 
         # Legacy single-question shape.
         return [{"prompt": question, "options": options}]
     return []
+
+
+def build_ask_user_preview(raw_arguments: str) -> dict[str, Any] | None:
+    """Draw what an ``ask_user`` call looks like so far, mid-stream.
+
+    The model writes this tool's arguments as one JSON object, and a card
+    with three explained options is several seconds of generation. Nothing
+    used to leave the backend until that object was closed, so the reader
+    watched a silent gap and then had a whole card land at once. This turns
+    the partial argument text into the same payload shape the finished call
+    produces, so the card can be drawn as it is written.
+
+    Deliberately best-effort: ``json_repair`` closes the truncated string /
+    object / array the model is still in the middle of, questions that do
+    not have a prompt yet are skipped rather than rejected, and any input it
+    cannot make sense of returns ``None`` (the round simply keeps waiting).
+    The result is a *preview* — the dispatched call is still parsed from the
+    complete arguments by the ordinary path, so nothing here can change what
+    the tool actually runs.
+    """
+    text = (raw_arguments or "").strip()
+    if not text:
+        return None
+    try:
+        data = json_repair.loads(text)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    raw_questions = data.get("questions")
+    if raw_questions is None and data.get("question") is not None:
+        raw_questions = [{"prompt": data.get("question"), "options": data.get("options")}]
+    questions: list[dict[str, Any]] = []
+    used_ids: set[str] = set()
+    if isinstance(raw_questions, (list, tuple)):
+        for idx, raw in enumerate(list(raw_questions)[:MAX_QUESTIONS]):
+            built = _build_question(_drop_half_written_options(raw), idx, used_ids)
+            if isinstance(built, str):
+                # Not enough of this question has arrived to draw it yet.
+                continue
+            used_ids.add(built.id)
+            questions.append(built.to_dict())
+
+    intro_text: str | None = None
+    intro = data.get("intro")
+    if intro is not None:
+        intro_text = _coerce_string(intro).strip() or None
+        if intro_text and len(intro_text) > MAX_INTRO_CHARS:
+            intro_text = intro_text[:MAX_INTRO_CHARS].rstrip() + "…"
+
+    # An intro on its own is worth showing: it is the first thing the model
+    # writes, so it puts the card on screen while the options are still
+    # being typed into it.
+    if not intro_text and not questions:
+        return None
+    return {"intro": intro_text, "questions": questions}
+
+
+def _drop_half_written_options(raw: Any) -> Any:
+    """Strip the options ``json_repair`` invented from an unfinished key.
+
+    An object whose key is still being typed (``{"labe``) is closed as a
+    *list* — ``["labe"]`` — which the ordinary option normaliser would
+    stringify into a visible ``['labe']`` choice for one frame. Real options
+    are objects (``{label, description}``) or, from older payloads, plain
+    strings; anything else at this position is an artefact of repairing a
+    truncated stream and is dropped until the model finishes writing it.
+    """
+    if not isinstance(raw, dict):
+        return raw
+    options = raw.get("options")
+    if not isinstance(options, (list, tuple)):
+        return raw
+    kept = [opt for opt in options if isinstance(opt, (dict, str))]
+    if len(kept) == len(options):
+        return raw
+    return {**raw, "options": kept}
 
 
 def _build_question(raw: Any, idx: int, used_ids: set[str]) -> AskUserQuestion | str:
@@ -174,6 +261,7 @@ def _build_question(raw: Any, idx: int, used_ids: set[str]) -> AskUserQuestion |
             return f"Question #{idx + 1}: `options` must be an array."
         cleaned: list[AskUserOption] = []
         seen_labels: set[str] = set()
+        seen_bodies: set[str] = set()
         for opt in options_raw:
             normalised = _build_option(opt)
             if normalised is None:
@@ -185,6 +273,17 @@ def _build_question(raw: Any, idx: int, used_ids: set[str]) -> AskUserQuestion |
             if normalised.label in seen_labels:
                 continue
             seen_labels.add(normalised.label)
+            # Two options whose visible text matches once whitespace and case
+            # are folded leave the learner nothing to pick between — the same
+            # duplicate-body rule the mastery quiz contract enforces at
+            # registration (#1409). An option with no body *is* its label, so
+            # label-only cards are governed by label uniqueness alone.
+            body = (normalised.description or "").strip()
+            if body:
+                body_key = " ".join(body.split()).casefold()
+                if body_key in seen_bodies:
+                    continue
+                seen_bodies.add(body_key)
             cleaned.append(normalised)
             if len(cleaned) >= MAX_OPTIONS:
                 break
@@ -253,8 +352,10 @@ def _coerce_string(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, str):
-        return value
-    return str(value)
+        raw = value
+    else:
+        raw = str(value)
+    return decode_escaped_unicode_for_display(raw)
 
 
 __all__ = [
@@ -270,4 +371,5 @@ __all__ = [
     "MAX_QUESTION_CHARS",
     "MAX_QUESTIONS",
     "build_ask_user_payload",
+    "build_ask_user_preview",
 ]

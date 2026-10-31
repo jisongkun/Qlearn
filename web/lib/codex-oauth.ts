@@ -1,5 +1,12 @@
 import { apiFetch, apiUrl } from "@/lib/api";
 
+export type CodexReasoningModel = {
+  model: string;
+  name: string;
+  supported_reasoning_levels: string[];
+  reasoning_effort: string | null;
+};
+
 export type CodexOAuthStatus = {
   connection: "disconnected" | "authorizing" | "connected" | "error";
   operation_id: string | null;
@@ -26,6 +33,7 @@ export type CodexOAuthStatus = {
     | null;
   catalog_fetched_at: number | null;
   active_model: string | null;
+  models: CodexReasoningModel[];
   activated: boolean;
   error_code: string | null;
 };
@@ -52,7 +60,7 @@ export class CodexOAuthApiError extends Error {
   }
 }
 
-const BASE = "/api/v1/settings/providers/openai-codex";
+const BASE = "/api/settings/providers/openai-codex";
 
 export function isLoopbackHostname(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase().replace(/\.$/, "");
@@ -123,9 +131,16 @@ export async function requestCodex<T>(
   path: string,
   method: "GET" | "POST",
   fetchImpl: typeof apiFetch = apiFetch,
+  body?: unknown,
 ): Promise<T> {
   const response = await fetchImpl(apiUrl(`${BASE}${path}`), {
     method,
+    ...(body === undefined
+      ? {}
+      : {
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
     skipAuthRedirect: true,
   });
   if (response.ok) {
@@ -165,8 +180,38 @@ export function cancelCodexLogin(): Promise<CodexOAuthStatus> {
   return requestCodex<CodexOAuthStatus>("/oauth/cancel", "POST");
 }
 
+/**
+ * Finish a waiting login from the callback address the browser landed on.
+ *
+ * The loopback listener normally receives it. Under Docker that listener is
+ * inside the container and its port is not published, so the browser reaches
+ * an address this process never hears about (#1252). The address is sent once
+ * and parsed server-side; it is never stored here.
+ */
+export function completeCodexLogin(
+  callbackUrl: string,
+  fetchImpl: typeof apiFetch = apiFetch,
+): Promise<CodexOAuthStatus> {
+  return requestCodex<CodexOAuthStatus>("/oauth/complete", "POST", fetchImpl, {
+    callback_url: callbackUrl,
+  });
+}
+
 export function refreshCodexModels(): Promise<CodexOAuthStatus> {
   return requestCodex<CodexOAuthStatus>("/models/refresh", "POST");
+}
+
+export function setCodexReasoningEffort(
+  model: string,
+  reasoningEffort: string | null,
+  fetchImpl: typeof apiFetch = apiFetch,
+): Promise<CodexOAuthStatus> {
+  return requestCodex<CodexOAuthStatus>(
+    "/models/reasoning-effort",
+    "POST",
+    fetchImpl,
+    { model, reasoning_effort: reasoningEffort },
+  );
 }
 
 export function logoutCodex(): Promise<CodexOAuthStatus> {
@@ -192,7 +237,19 @@ export function codexErrorMessageKey(code: string | null): string {
   if (code === "callback_unavailable") {
     return "codex.oauth.callbackUnavailable";
   }
+  if (code === "callback_url_invalid") {
+    return "codex.oauth.callbackUrlInvalid";
+  }
   if (code === "invalid_response") return "codex.oauth.invalidResponse";
+  if (code === "reasoning_effort_unsupported") {
+    return "codex.oauth.reasoningUnsupported";
+  }
+  if (
+    code === "codex_model_not_found" ||
+    code === "codex_catalog_unavailable"
+  ) {
+    return "codex.oauth.reasoningCatalogChanged";
+  }
   if (code === "login_cancelled") return "codex.oauth.cancelled";
   if (code === "authorization_denied") return "codex.oauth.denied";
   return "codex.oauth.requestFailed";
