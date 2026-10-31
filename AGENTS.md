@@ -1,5 +1,9 @@
 # Qlearn — DeepTutor-Compatible UI Fork
 
+## Current runtime authority (2026-10-31 return)
+
+The sole test runtime is restored to aliyunphtion:/home/shinji/Developer/Qlearn-test, using deploy/test/docker-compose.yml and the original qlearn-test container. Its complete /data/opt/docker/qlearn-test/data bind was synchronized and verified against the latest cloud state. Development/checks remain Docker-only here; no production deployment exists. The new-cloud copy remains stopped/restart=no with data retained, not a second writer. This section supersedes the 2026-10-28 new-cloud host references elsewhere below; those migration records are historical. GitHub Actions remains disabled; a push does not authorize deployment.
+
 This file is the single source of agent instructions for this repository, shared
 by Codex and Claude Code. `CLAUDE.md` only imports it (`@AGENTS.md`); do not add
 rules to `CLAUDE.md`.
